@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "402610814588",
+    "project_id": "edumanage-1b145",
+    "storage_bucket": "edumanage-1b145.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402610814588:android:8a25b71dc2faac378693f9",
+        "android_client_info": {
+          "package_name": "com.example.edumanage"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxdhkkXybv91x6kox4bJdFRokdR9DvVHw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402610814588:android:c0ca15d185baad8d8693f9",
+        "android_client_info": {
+          "package_name": "com.example.school_management_system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxdhkkXybv91x6kox4bJdFRokdR9DvVHw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
