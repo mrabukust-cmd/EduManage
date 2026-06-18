@@ -84,10 +84,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
+  // Future<void> _finish() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.setBool('onboarding_done', true);
+  //   if (mounted) context.go(RouteNames.login);
+  // }
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
-    if (mounted) context.go(RouteNames.login);
+
+    if (mounted) {
+      context.go('/login'); // ALWAYS LOGIN AFTER ONBOARDING
+    }
   }
 
   void _nextPage() {
@@ -144,7 +152,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             right: 0,
             child: Container(
               padding: EdgeInsets.fromLTRB(
-                  32, 24, 32, MediaQuery.of(context).padding.bottom + 32),
+                32,
+                24,
+                32,
+                MediaQuery.of(context).padding.bottom + 32,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -268,11 +280,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             width: 2,
                           ),
                         ),
-                        child: Icon(
-                          page.icon,
-                          size: 72,
-                          color: Colors.white,
-                        ),
+                        child: Icon(page.icon, size: 72, color: Colors.white),
                       ),
                     ],
                   ),

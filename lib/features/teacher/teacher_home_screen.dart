@@ -75,6 +75,8 @@ class TeacherHomeScreen extends ConsumerWidget {
                     _ActionTile(icon: Icons.grade_rounded, label: 'Grades', color: AppColors.accent, onTap: () => context.push('/teacher/grades')),
                     const SizedBox(width: 12),
                     _ActionTile(icon: Icons.chat_rounded, label: 'Messages', color: AppColors.warning, onTap: () => context.push('/teacher/messages')),
+                    const SizedBox(width: 12),
+                    _ActionTile(icon: Icons.logout_rounded, label: 'Logout', color: AppColors.danger, onTap: () => context.push('/onboarding')),
                   ],
                 ),
               ),

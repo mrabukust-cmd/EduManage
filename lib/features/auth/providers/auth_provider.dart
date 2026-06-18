@@ -184,7 +184,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   String? get currentRole => state.role;
   User? get currentUser => state.user;
 
-  void signOut() {}
+  Future<void> signOut() async {
+    await FirebaseAuth.instance.signOut();
+    state = AuthState(
+      user: null,
+      role: null,
+      isLoading: false,
+    );
+  }
 }
 
 // ── Provider ────────────────────────────────────────────────

@@ -328,7 +328,7 @@ class _StudentBottomNav extends StatelessWidget {
           case 1: context.go('/student/timetable'); break;
           case 2: context.go('/student/assignments'); break;
           case 3: context.go('/student/results'); break;
-          case 4: context.go('/student/profile'); break;
+          case 4: context.go('/student/home/profile'); break;
         }
       },
       items: const [
