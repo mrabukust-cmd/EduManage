@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 
 // ── Attendance Status Enum ────────────────────────────────────────────────────
@@ -11,37 +13,87 @@ enum AttendanceStatus { present, absent, late, leave }
 
 // ── Student Attendance Model ──────────────────────────────────────────────────
 class StudentAttendance {
-  final String id, name, rollNo;
-  AttendanceStatus status;
-  StudentAttendance({required this.id, required this.name, required this.rollNo, this.status = AttendanceStatus.present});
+  final String id;
+  final String name;
+  final String rollNo;
+  final String className;
+  const StudentAttendance({required this.id, required this.name, required this.rollNo, required this.className});
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
-final attendanceProvider = StateNotifierProvider.autoDispose<AttendanceNotifier, List<StudentAttendance>>((ref) {
-  return AttendanceNotifier();
+// ── Providers ──────────────────────────────────────────────────────────────────
+final teacherAssignedClassesProvider = StreamProvider.autoDispose<List<String>>((ref) {
+  final uid = ref.watch(authProvider).user?.uid;
+  final teacherName = ref.watch(authProvider).user?.displayName?.trim() ?? '';
+  if (uid == null) return const Stream.empty();
+
+  return FirebaseFirestore.instance.collection('teachers').doc(uid).snapshots().asyncMap((snapshot) async {
+    final data = snapshot.data() as Map<String, dynamic>?;
+    final classesFromTeacher = (data?['classes'] as List<dynamic>?)
+            ?.map((e) => e.toString().trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList() ??
+        <String>[];
+    if (classesFromTeacher.isNotEmpty) {
+      classesFromTeacher.sort();
+      return classesFromTeacher;
+    }
+
+    if (teacherName.isEmpty) {
+      return <String>[];
+    }
+
+    final classSnapshot = await FirebaseFirestore.instance
+        .collection('classes')
+        .where('classTeacher', isEqualTo: teacherName)
+        .get();
+
+    final classesFromClasses = classSnapshot.docs
+        .map((doc) => (doc.data()['name'] as String? ?? '').trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    return classesFromClasses;
+  });
 });
 
-class AttendanceNotifier extends StateNotifier<List<StudentAttendance>> {
-  AttendanceNotifier() : super(_mockStudents());
+final studentAttendanceStreamProvider = StreamProvider.family.autoDispose<List<StudentAttendance>, String>((ref, selectedClass) {
+  return FirebaseFirestore.instance
+      .collection('students')
+      .where('class', isEqualTo: selectedClass)
+      .orderBy('name')
+      .snapshots()
+      .map((snapshot) {
+    final students = snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return StudentAttendance(
+        id: doc.id,
+        name: data['name'] as String? ?? 'Unknown',
+        rollNo: data['rollNo'] as String? ?? '-',
+        className: data['class'] as String? ?? '',
+      );
+    }).toList();
+    students.sort((a, b) => a.name.compareTo(b.name));
+    return students;
+  });
+});
+
+final attendanceStatusesProvider = StateNotifierProvider.autoDispose<AttendanceStatusNotifier, Map<String, AttendanceStatus>>((ref) {
+  return AttendanceStatusNotifier();
+});
+
+class AttendanceStatusNotifier extends StateNotifier<Map<String, AttendanceStatus>> {
+  AttendanceStatusNotifier() : super({});
 
   void setStatus(String id, AttendanceStatus status) {
-    state = [for (final s in state) if (s.id == id) (s..status = status) else s];
+    state = {...state, id: status};
   }
 
-  void markAll(AttendanceStatus status) {
-    state = [for (final s in state) (s..status = status)];
+  void markAll(List<String> ids, AttendanceStatus status) {
+    state = {for (final id in ids) id: status};
   }
-
-  static List<StudentAttendance> _mockStudents() => [
-    StudentAttendance(id: '1', name: 'Ali Khan', rollNo: '01'),
-    StudentAttendance(id: '2', name: 'Sara Noor', rollNo: '02'),
-    StudentAttendance(id: '3', name: 'Usman Tariq', rollNo: '03'),
-    StudentAttendance(id: '4', name: 'Ayesha Malik', rollNo: '04'),
-    StudentAttendance(id: '5', name: 'Bilal Ahmed', rollNo: '05'),
-    StudentAttendance(id: '6', name: 'Fatima Rizvi', rollNo: '06'),
-    StudentAttendance(id: '7', name: 'Zain ul Abideen', rollNo: '07'),
-    StudentAttendance(id: '8', name: 'Hira Baig', rollNo: '08'),
-  ];
 }
 
 // ── Attendance Screen ─────────────────────────────────────────────────────────
@@ -53,17 +105,28 @@ class AttendanceScreen extends ConsumerStatefulWidget {
 }
 
 class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
-  String _selectedClass = 'Grade 9A';
-  final _classes = ['Grade 8B', 'Grade 9A', 'Grade 10B'];
+  String _selectedClass = '';
   bool _submitted = false;
 
   @override
   Widget build(BuildContext context) {
-    final students = ref.watch(attendanceProvider);
-    final notifier = ref.read(attendanceProvider.notifier);
+    final classNamesAsync = ref.watch(teacherAssignedClassesProvider);
+    final attendanceStatuses = ref.watch(attendanceStatusesProvider);
+    final notifier = ref.read(attendanceStatusesProvider.notifier);
 
-    final presentCount = students.where((s) => s.status == AttendanceStatus.present).length;
-    final absentCount  = students.where((s) => s.status == AttendanceStatus.absent).length;
+    final classOptions = classNamesAsync.when(
+      data: (classes) => classes.isEmpty ? const ['No classes assigned'] : classes,
+      loading: () => const ['Loading classes...'],
+      error: (_, __) => const ['Unable to load classes'],
+    );
+
+    final selectedClassValue = classOptions.contains(_selectedClass) ? _selectedClass : classOptions.first;
+    final isClassSelectable = classOptions.isNotEmpty && classOptions.first != 'No classes assigned' && classOptions.first != 'Loading classes...' && classOptions.first != 'Unable to load classes';
+    final studentsAsync = isClassSelectable ? ref.watch(studentAttendanceStreamProvider(selectedClassValue)) : const AsyncValue.data(<StudentAttendance>[]);
+
+    final totalCount = studentsAsync.when(data: (students) => students.length, loading: () => 0, error: (_, __) => 0);
+    final presentCount = studentsAsync.when(data: (students) => students.where((student) => attendanceStatuses[student.id] == AttendanceStatus.present).length, loading: () => 0, error: (_, __) => 0);
+    final absentCount = studentsAsync.when(data: (students) => students.where((student) => attendanceStatuses[student.id] == AttendanceStatus.absent).length, loading: () => 0, error: (_, __) => 0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -77,12 +140,20 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: _selectedClass,
+                value: selectedClassValue,
                 dropdownColor: AppColors.teacherColor,
                 style: AppTextStyles.labelMedium.copyWith(color: Colors.white),
                 iconEnabledColor: Colors.white,
-                items: _classes.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => setState(() => _selectedClass = v!),
+                items: classOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: isClassSelectable
+                    ? (v) {
+                        if (v == null) return;
+                        setState(() {
+                          _selectedClass = v;
+                          _submitted = false;
+                        });
+                      }
+                    : null,
               ),
             ),
           ),
@@ -100,7 +171,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                 const SizedBox(width: 10),
                 _SummaryChip(label: 'Absent', count: absentCount, color: Colors.redAccent),
                 const SizedBox(width: 10),
-                _SummaryChip(label: 'Total', count: students.length, color: Colors.white),
+                _SummaryChip(label: 'Total', count: totalCount, color: Colors.white),
               ],
             ),
           ),
@@ -112,26 +183,68 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
               children: [
                 Text('Mark All:', style: AppTextStyles.bodyMediumBold),
                 const SizedBox(width: 12),
-                _MarkAllBtn(label: 'Present', color: Colors.green, onTap: () => notifier.markAll(AttendanceStatus.present)),
+                _MarkAllBtn(
+                  label: 'Present',
+                  color: Colors.green,
+                  onTap: () => studentsAsync.whenData((students) {
+                    notifier.markAll(students.map((s) => s.id).toList(), AttendanceStatus.present);
+                  }),
+                ),
                 const SizedBox(width: 8),
-                _MarkAllBtn(label: 'Absent', color: Colors.red, onTap: () => notifier.markAll(AttendanceStatus.absent)),
+                _MarkAllBtn(
+                  label: 'Absent',
+                  color: Colors.red,
+                  onTap: () => studentsAsync.whenData((students) {
+                    notifier.markAll(students.map((s) => s.id).toList(), AttendanceStatus.absent);
+                  }),
+                ),
               ],
             ),
           ),
 
           // ── Student List ──────────────────────────────────────
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: students.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final s = students[i];
-                return _StudentAttRow(
-                  student: s,
-                  onStatus: (status) => notifier.setStatus(s.id, status),
+            child: classNamesAsync.when(
+              data: (classes) {
+                if (!isClassSelectable) {
+                  final message = classOptions.first == 'Loading classes...'
+                      ? 'Loading your assigned classes...'
+                      : classOptions.first == 'Unable to load classes'
+                          ? 'Unable to load classes. Please try again.'
+                          : 'No classes assigned. Ask admin to assign you to a class.';
+                  return Center(
+                    child: Text(message, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary), textAlign: TextAlign.center),
+                  );
+                }
+
+                return studentsAsync.when(
+                  data: (students) {
+                    if (students.isEmpty) {
+                      return Center(
+                        child: Text('No students found for $selectedClassValue.', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary), textAlign: TextAlign.center),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: students.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, index) {
+                        final student = students[index];
+                        final currentStatus = attendanceStatuses[student.id];
+                        return _StudentAttRow(
+                          student: student,
+                          currentStatus: currentStatus,
+                          onStatus: (status) => notifier.setStatus(student.id, status),
+                        );
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Center(child: Text('Unable to load students', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary))),
                 );
               },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Unable to load your assigned classes', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary))),
             ),
           ),
 
@@ -141,12 +254,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _submitted ? null : () {
-                  setState(() => _submitted = true);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Attendance submitted successfully!'), backgroundColor: AppColors.teacherColor),
-                  );
-                },
+                onPressed: !_submitted && isClassSelectable && totalCount > 0
+                    ? () {
+                        setState(() => _submitted = true);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Attendance submitted successfully!'), backgroundColor: AppColors.teacherColor),
+                        );
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.teacherColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -209,8 +324,9 @@ class _MarkAllBtn extends StatelessWidget {
 // ── Student Attendance Row ────────────────────────────────────────────────────
 class _StudentAttRow extends StatelessWidget {
   final StudentAttendance student;
+  final AttendanceStatus? currentStatus;
   final ValueChanged<AttendanceStatus> onStatus;
-  const _StudentAttRow({required this.student, required this.onStatus});
+  const _StudentAttRow({required this.student, required this.currentStatus, required this.onStatus});
 
   @override
   Widget build(BuildContext context) {
@@ -227,11 +343,11 @@ class _StudentAttRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(child: Text(student.name, style: AppTextStyles.bodyMediumBold)),
           // Status Buttons
-          _StatusBtn(label: 'P', status: AttendanceStatus.present, current: student.status, color: Colors.green, onTap: () => onStatus(AttendanceStatus.present)),
+          _StatusBtn(label: 'P', status: AttendanceStatus.present, current: currentStatus, color: Colors.green, onTap: () => onStatus(AttendanceStatus.present)),
           const SizedBox(width: 6),
-          _StatusBtn(label: 'A', status: AttendanceStatus.absent, current: student.status, color: Colors.red, onTap: () => onStatus(AttendanceStatus.absent)),
+          _StatusBtn(label: 'A', status: AttendanceStatus.absent, current: currentStatus, color: Colors.red, onTap: () => onStatus(AttendanceStatus.absent)),
           const SizedBox(width: 6),
-          _StatusBtn(label: 'L', status: AttendanceStatus.late, current: student.status, color: Colors.orange, onTap: () => onStatus(AttendanceStatus.late)),
+          _StatusBtn(label: 'L', status: AttendanceStatus.late, current: currentStatus, color: Colors.orange, onTap: () => onStatus(AttendanceStatus.late)),
         ],
       ),
     );
@@ -240,7 +356,8 @@ class _StudentAttRow extends StatelessWidget {
 
 class _StatusBtn extends StatelessWidget {
   final String label;
-  final AttendanceStatus status, current;
+  final AttendanceStatus status;
+  final AttendanceStatus? current;
   final Color color;
   final VoidCallback onTap;
   const _StatusBtn({required this.label, required this.status, required this.current, required this.color, required this.onTap});

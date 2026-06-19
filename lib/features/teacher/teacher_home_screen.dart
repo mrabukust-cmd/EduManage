@@ -68,15 +68,13 @@ class TeacherHomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    _ActionTile(icon: Icons.how_to_reg_rounded, label: 'Attendance', color: AppColors.teacherColor, onTap: () => context.push('/teacher/attendance')),
+                    _ActionTile(icon: Icons.how_to_reg_rounded, label: 'Attendance', color: AppColors.teacherColor, onTap: () => context.push('/teacher/home/attendance')),
                     const SizedBox(width: 12),
-                    _ActionTile(icon: Icons.assignment_rounded, label: 'Assignments', color: AppColors.primary, onTap: () => context.push('/teacher/assignments')),
+                    _ActionTile(icon: Icons.assignment_rounded, label: 'Assignments', color: AppColors.primary, onTap: () => context.push('/teacher/home/assignments')),
                     const SizedBox(width: 12),
-                    _ActionTile(icon: Icons.grade_rounded, label: 'Grades', color: AppColors.accent, onTap: () => context.push('/teacher/grades')),
+                    _ActionTile(icon: Icons.grade_rounded, label: 'Grades', color: AppColors.accent, onTap: () => context.push('/teacher/home/grades')),
                     const SizedBox(width: 12),
-                    _ActionTile(icon: Icons.chat_rounded, label: 'Messages', color: AppColors.warning, onTap: () => context.push('/teacher/messages')),
-                    const SizedBox(width: 12),
-                    _ActionTile(icon: Icons.logout_rounded, label: 'Logout', color: AppColors.danger, onTap: () => context.push('/onboarding')),
+                    _ActionTile(icon: Icons.chat_rounded, label: 'Messages', color: AppColors.warning, onTap: () => context.push('/teacher/home/messages')),
                   ],
                 ),
               ),
@@ -287,10 +285,10 @@ class _TeacherBottomNav extends StatelessWidget {
       onTap: (i) {
         switch (i) {
           case 0: context.go('/teacher/home'); break;
-          case 1: context.go('/teacher/classes'); break;
-          case 2: context.go('/teacher/attendance'); break;
-          case 3: context.go('/teacher/grades'); break;
-          case 4: context.go('/teacher/profile'); break;
+          case 1: context.go('/teacher/home/classes'); break;
+          case 2: context.go('/teacher/home/attendance'); break;
+          case 3: context.go('/teacher/home/grades'); break;
+          case 4: context.go('/teacher/home/profile'); break;
         }
       },
       items: const [

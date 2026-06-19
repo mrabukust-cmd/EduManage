@@ -325,9 +325,9 @@ class _StudentBottomNav extends StatelessWidget {
       onTap: (i) {
         switch (i) {
           case 0: context.go('/student/home'); break;
-          case 1: context.go('/student/timetable'); break;
-          case 2: context.go('/student/assignments'); break;
-          case 3: context.go('/student/results'); break;
+          case 1: context.go('/student/home/timetable'); break;
+          case 2: context.go('/student/home/assignments'); break;
+          case 3: context.go('/student/home/results'); break;
           case 4: context.go('/student/home/profile'); break;
         }
       },

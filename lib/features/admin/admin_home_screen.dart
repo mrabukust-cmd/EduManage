@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,11 +29,50 @@ class AdminHomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    _StatCard(label: 'Students', value: '320', icon: Icons.school_rounded, color: AppColors.studentColor),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance.collection('students').snapshots(),
+                        builder: (context, snap) {
+                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          return _StatCard(
+                            label: 'Students',
+                            value: count?.toString() ?? '...',
+                            icon: Icons.school_rounded,
+                            color: AppColors.studentColor,
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    _StatCard(label: 'Teachers', value: '18', icon: Icons.person_rounded, color: AppColors.teacherColor),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
+                        builder: (context, snap) {
+                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          return _StatCard(
+                            label: 'Teachers',
+                            value: count?.toString() ?? '...',
+                            icon: Icons.person_rounded,
+                            color: AppColors.teacherColor,
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    _StatCard(label: 'Classes', value: '12', icon: Icons.class_rounded, color: AppColors.adminColor),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+                        builder: (context, snap) {
+                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          return _StatCard(
+                            label: 'Classes',
+                            value: count?.toString() ?? '...',
+                            icon: Icons.class_rounded,
+                            color: AppColors.adminColor,
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -58,12 +98,12 @@ class AdminHomeScreen extends ConsumerWidget {
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                   children: [
-                    _QuickAction(icon: Icons.person_add_rounded, label: 'Add Student', color: AppColors.studentColor, onTap: () => context.push('/admin/students/add')),
-                    _QuickAction(icon: Icons.person_add_alt_1_rounded, label: 'Add Teacher', color: AppColors.teacherColor, onTap: () => context.push('/admin/teachers/add')),
-                    _QuickAction(icon: Icons.class_rounded, label: 'Manage Classes', color: AppColors.adminColor, onTap: () => context.push('/admin/classes')),
-                    _QuickAction(icon: Icons.calendar_month_rounded, label: 'Timetable', color: AppColors.primary, onTap: () => context.push('/admin/timetable')),
-                    _QuickAction(icon: Icons.attach_money_rounded, label: 'Fees', color: AppColors.warning, onTap: () => context.push('/admin/fees')),
-                    _QuickAction(icon: Icons.announcement_rounded, label: 'Notices', color: AppColors.accent, onTap: () => context.push('/admin/notices')),
+                    _QuickAction(icon: Icons.person_add_rounded, label: 'Add Student', color: AppColors.studentColor, onTap: () => context.push('/admin/home/students/add')),
+                    _QuickAction(icon: Icons.person_add_alt_1_rounded, label: 'Add Teacher', color: AppColors.teacherColor, onTap: () => context.push('/admin/home/teachers/add')),
+                    _QuickAction(icon: Icons.class_rounded, label: 'Manage Classes', color: AppColors.adminColor, onTap: () => context.push('/admin/home/classes')),
+                    _QuickAction(icon: Icons.calendar_month_rounded, label: 'Timetable', color: AppColors.primary, onTap: () => context.push('/admin/home/timetable')),
+                    _QuickAction(icon: Icons.attach_money_rounded, label: 'Fees', color: AppColors.warning, onTap: () => context.push('/admin/home/fees')),
+                    _QuickAction(icon: Icons.announcement_rounded, label: 'Notices', color: AppColors.accent, onTap: () => context.push('/admin/home/notices')),
                   ],
                 ),
               ),
@@ -286,10 +326,10 @@ class _AdminBottomNav extends StatelessWidget {
       onTap: (i) {
         switch (i) {
           case 0: context.go('/admin/home'); break;
-          case 1: context.go('/admin/students'); break;
-          case 2: context.go('/admin/teachers'); break;
-          case 3: context.go('/admin/reports'); break;
-          case 4: context.go('/admin/settings'); break;
+          case 1: context.go('/admin/home/students'); break;
+          case 2: context.go('/admin/home/teachers'); break;
+          case 3: context.go('/admin/home/reports'); break;
+          case 4: context.go('/admin/home/settings'); break;
         }
       },
       items: const [

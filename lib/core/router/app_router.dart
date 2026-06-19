@@ -2,18 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/features/admin/admin_home_screen.dart';
+import 'package:school_management_system/features/admin/classes/classes_screen.dart';
 import 'package:school_management_system/features/admin/notices/notices_board_screen.dart';
 import 'package:school_management_system/features/admin/student_list.dart';
+import 'package:school_management_system/features/admin/teacher_list_screen.dart';
+import 'package:school_management_system/features/admin/teachers/add/add_teacher_screen.dart';
+import 'package:school_management_system/features/admin/add_student_screen.dart';
+import 'package:school_management_system/features/admin/reports_screen.dart';
+import 'package:school_management_system/features/teacher/classes/teacher_classes_screen.dart';
 import 'package:school_management_system/features/auth/login_screen.dart';
 import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/onboarding_screen.dart';
-import 'package:school_management_system/features/auth/screens/profile_screen.dart';
 import 'package:school_management_system/features/auth/screens/splash_screen.dart';
+import 'package:school_management_system/features/shared/profile/profile_screen.dart';
+import 'package:school_management_system/features/student/assignment/student_assignment_screen.dart';
 import 'package:school_management_system/features/student/student_home_screen.dart';
+import 'package:school_management_system/features/teacher/assignments/assignement_screen.dart';
 import 'package:school_management_system/features/teacher/attendence/attendence_screen.dart';
+import 'package:school_management_system/features/teacher/grades/grades_screen.dart';
 import 'package:school_management_system/features/teacher/teacher_home_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
-
 
 // ── Router Provider ───────────────────────────────────────────────────────────
 final routerProvider = Provider<GoRouter>((ref) {
@@ -54,14 +62,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
           GoRoute(path: 'students',     builder: (_, __) => const StudentListScreen()),
-          GoRoute(path: 'students/add', builder: (_, __) => const Scaffold(body: Center(child: Text('Add Student – Coming Soon')))),
-          GoRoute(path: 'teachers',     builder: (_, __) => const Scaffold(body: Center(child: Text('Teacher List – Coming Soon')))),
-          GoRoute(path: 'teachers/add', builder: (_, __) => const Scaffold(body: Center(child: Text('Add Teacher – Coming Soon')))),
-          GoRoute(path: 'classes',      builder: (_, __) => const Scaffold(body: Center(child: Text('Classes – Coming Soon')))),
+          GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
+          GoRoute(path: 'teachers',     builder: (_, __) => const TeacherListScreen()),
+          GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
+          GoRoute(path: 'classes',      builder: (_, __) => const ClassesScreen()),
           GoRoute(path: 'timetable',    builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
           GoRoute(path: 'fees',         builder: (_, __) => const Scaffold(body: Center(child: Text('Fees – Coming Soon')))),
           GoRoute(path: 'notices',      builder: (_, __) => const NoticeBoardScreen()),
-          GoRoute(path: 'reports',      builder: (_, __) => const Scaffold(body: Center(child: Text('Reports – Coming Soon')))),
+          GoRoute(path: 'reports',      builder: (_, __) => const ReportsScreen()),
           GoRoute(path: 'settings',     builder: (_, __) => const ProfileScreen()),
         ],
       ),
@@ -72,9 +80,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const TeacherHomeScreen(),
         routes: [
           GoRoute(path: 'attendance',  builder: (_, __) => const AttendanceScreen()),
-          GoRoute(path: 'classes',     builder: (_, __) => const Scaffold(body: Center(child: Text('My Classes – Coming Soon')))),
-          GoRoute(path: 'assignments', builder: (_, __) => const Scaffold(body: Center(child: Text('Assignments – Coming Soon')))),
-          GoRoute(path: 'grades',      builder: (_, __) => const Scaffold(body: Center(child: Text('Grades – Coming Soon')))),
+          GoRoute(path: 'classes',     builder: (_, __) => const TeacherClassesScreen()),
+          GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
+          GoRoute(path: 'grades',      builder: (_, __) => const GradesScreen()),
           GoRoute(path: 'timetable',   builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
           GoRoute(path: 'messages',    builder: (_, __) => const Scaffold(body: Center(child: Text('Messages – Coming Soon')))),
           GoRoute(path: 'profile',     builder: (_, __) => const ProfileScreen()),
@@ -87,7 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const StudentHomeScreen(),
         routes: [
           GoRoute(path: 'timetable',      builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
-          GoRoute(path: 'assignments',    builder: (_, __) => const Scaffold(body: Center(child: Text('Assignments – Coming Soon')))),
+          GoRoute(path: 'assignments',    builder: (_, __) => const StudentAssignmentsScreen()),
           GoRoute(path: 'results',        builder: (_, __) => const Scaffold(body: Center(child: Text('Results – Coming Soon')))),
           GoRoute(path: 'notifications',  builder: (_, __) => const Scaffold(body: Center(child: Text('Notifications – Coming Soon')))),
           GoRoute(path: 'profile',        builder: (_, __) => const ProfileScreen()),

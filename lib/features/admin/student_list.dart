@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -16,17 +17,9 @@ class StudentModel {
 final studentSearchProvider = StateProvider<String>((ref) => '');
 final selectedGradeProvider  = StateProvider<String>((ref) => 'All');
 
-final studentsProvider = Provider<List<StudentModel>>((ref) => _mockStudents());
-
-List<StudentModel> _mockStudents() => [
-  StudentModel(id: '1', name: 'Ali Khan', rollNo: '001', grade: 'Grade 9', section: 'A', contact: '+92 300 1234567'),
-  StudentModel(id: '2', name: 'Sara Noor', rollNo: '002', grade: 'Grade 9', section: 'A', contact: '+92 301 2345678'),
-  StudentModel(id: '3', name: 'Usman Tariq', rollNo: '003', grade: 'Grade 10', section: 'B', contact: '+92 302 3456789'),
-  StudentModel(id: '4', name: 'Ayesha Malik', rollNo: '004', grade: 'Grade 8', section: 'C', contact: '+92 303 4567890'),
-  StudentModel(id: '5', name: 'Bilal Ahmed', rollNo: '005', grade: 'Grade 10', section: 'A', contact: '+92 304 5678901'),
-  StudentModel(id: '6', name: 'Fatima Rizvi', rollNo: '006', grade: 'Grade 8', section: 'B', contact: '+92 305 6789012'),
-  StudentModel(id: '7', name: 'Zain Abbas', rollNo: '007', grade: 'Grade 9', section: 'B', contact: '+92 306 7890123'),
-];
+final studentsStreamProvider = StreamProvider<QuerySnapshot>((ref) {
+  return FirebaseFirestore.instance.collection('students').orderBy('name').snapshots();
+});
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 class StudentListScreen extends ConsumerWidget {
@@ -38,13 +31,29 @@ class StudentListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final query         = ref.watch(studentSearchProvider);
     final selectedGrade = ref.watch(selectedGradeProvider);
-    final allStudents   = ref.watch(studentsProvider);
+    final studentsSnap  = ref.watch(studentsStreamProvider);
 
-    final filtered = allStudents.where((s) {
-      final matchGrade = selectedGrade == 'All' || s.grade == selectedGrade;
-      final matchQuery = s.name.toLowerCase().contains(query.toLowerCase()) || s.rollNo.contains(query);
-      return matchGrade && matchQuery;
-    }).toList();
+    final filtered = studentsSnap.when(
+      data: (snapshot) {
+        return snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return StudentModel(
+            id: doc.id,
+            name: data['name'] as String? ?? 'Unknown',
+            rollNo: data['rollNo'] as String? ?? '-',
+            grade: data['class'] as String? ?? 'Unknown',
+            section: data['section'] as String? ?? '-',
+            contact: data['contact'] as String? ?? '-',
+          );
+        }).where((s) {
+          final matchGrade = selectedGrade == 'All' || s.grade == selectedGrade;
+          final matchQuery = s.name.toLowerCase().contains(query.toLowerCase()) || s.rollNo.contains(query);
+          return matchGrade && matchQuery;
+        }).toList();
+      },
+      loading: () => [],
+      error: (_, __) => [],
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -56,7 +65,7 @@ class StudentListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-            onPressed: () => context.push('/admin/students/add'),
+            onPressed: () => context.push('/admin/home/students/add'),
           ),
         ],
       ),
@@ -122,14 +131,20 @@ class StudentListScreen extends ConsumerWidget {
 
           // ── List ─────────────────────────────────────────────
           Expanded(
-            child: filtered.isEmpty
-                ? Center(child: Text('No students found', style: AppTextStyles.bodyMedium))
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _StudentCard(student: filtered[i]),
-                  ),
+            child: studentsSnap.when(
+              data: (_) => filtered.isEmpty
+                  ? Center(child: Text('No students found', style: AppTextStyles.bodyMedium))
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) => _StudentCard(student: filtered[i]),
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Text('Failed to load students', style: AppTextStyles.bodyMedium),
+              ),
+            ),
           ),
         ],
       ),

@@ -62,9 +62,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
 
     Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
       _headerController.forward();
     });
     Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
       _formController.forward();
     });
   }
@@ -98,6 +100,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
         ),
       );
+      return;
+    }
+
+    if (!mounted) return;
+    final role = ref.read(authProvider).role;
+    switch (role) {
+      case 'admin':
+        context.go(RouteNames.adminHome);
+        break;
+      case 'teacher':
+        context.go(RouteNames.teacherHome);
+        break;
+      default:
+        context.go(RouteNames.studentHome);
     }
   }
 
