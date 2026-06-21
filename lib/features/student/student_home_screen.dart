@@ -43,7 +43,7 @@ class StudentHomeScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text("Today's Schedule", style: AppTextStyles.sectionTitle),
-                    TextButton(onPressed: () => context.push('/student/timetable'), child: const Text('Full Timetable')),
+                    TextButton(onPressed: () => context.push('/student/home/timetable'), child: const Text('Full Timetable')),
                   ],
                 ),
               ),

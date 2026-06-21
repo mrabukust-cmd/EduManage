@@ -9,9 +9,16 @@ import 'package:school_management_system/features/admin/teacher_list_screen.dart
 import 'package:school_management_system/features/admin/teachers/add/add_teacher_screen.dart';
 import 'package:school_management_system/features/admin/add_student_screen.dart';
 import 'package:school_management_system/features/admin/reports_screen.dart';
+import 'package:school_management_system/features/admin/timetable/timetable_screen.dart';
+import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
+import 'package:school_management_system/features/shared/notification/notifications.dart';
+import 'package:school_management_system/features/shared/profile/edit_profile/edit_profile_screen.dart';
+import 'package:school_management_system/features/shared/setting/change_password_screen.dart';
+import 'package:school_management_system/features/student/my_attendence.dart/student_attendance_screen.dart';
+import 'package:school_management_system/features/student/notices/student_notices_screen.dart';
+import 'package:school_management_system/features/student/results/student_results_screen.dart';
 import 'package:school_management_system/features/teacher/classes/teacher_classes_screen.dart';
 import 'package:school_management_system/features/auth/login_screen.dart';
-import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/onboarding_screen.dart';
 import 'package:school_management_system/features/auth/screens/splash_screen.dart';
 import 'package:school_management_system/features/shared/profile/profile_screen.dart';
@@ -31,46 +38,59 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     redirect: (context, state) {
       final isLoggedIn = authState.user != null;
-      final role       = authState.role;
+      final role = authState.role;
+      final isPending = authState.isPending;
 
-      final onAuthPage = state.matchedLocation == '/login' || state.matchedLocation == '/register';
-      final onSplash   = state.matchedLocation == '/splash';
-      final onBoarding = state.matchedLocation == '/onboarding';
+      final loc = state.matchedLocation;
+      final onSplash = loc == '/splash';
+      final onBoarding = loc == '/onboarding';
+      final onLogin = loc == '/login';
+      final onPending = loc == '/pending';
 
+      // Always allow splash and onboarding
       if (onSplash || onBoarding) return null;
 
-      if (!isLoggedIn && !onAuthPage) return '/login';
-      if (isLoggedIn && onAuthPage) {
+      // Not logged in → go to login
+      if (!isLoggedIn && !onLogin) return '/login';
+
+      // Logged in but pending → only allow /pending
+      if (isLoggedIn && isPending && !onPending) return '/pending';
+
+      // Logged in, not pending, on login page or pending page → redirect to dashboard
+      if (isLoggedIn && !isPending && (onLogin || onPending)) {
         return switch (role) {
-          'admin'   => '/admin/home',
+          'admin' => '/admin/home',
           'teacher' => '/teacher/home',
-          _         => '/student/home',
+          _ => '/student/home',
         };
       }
+
       return null;
     },
     routes: [
       // ── Auth ──────────────────────────────────────────────────────────────
-      GoRoute(path: '/splash',     builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
-      GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register',   builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+
+      // ── Pending approval ───────────────────────────────────────────────────
+      GoRoute(path: '/pending', builder: (_, __) => const PendingApprovalScreen()),
 
       // ── Admin ──────────────────────────────────────────────────────────────
       GoRoute(
         path: '/admin/home',
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
-          GoRoute(path: 'students',     builder: (_, __) => const StudentListScreen()),
+          GoRoute(path: 'students', builder: (_, __) => const StudentListScreen()),
+          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
           GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
-          GoRoute(path: 'teachers',     builder: (_, __) => const TeacherListScreen()),
+          GoRoute(path: 'teachers', builder: (_, __) => const TeacherListScreen()),
           GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
-          GoRoute(path: 'classes',      builder: (_, __) => const ClassesScreen()),
-          GoRoute(path: 'timetable',    builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
-          GoRoute(path: 'fees',         builder: (_, __) => const Scaffold(body: Center(child: Text('Fees – Coming Soon')))),
-          GoRoute(path: 'notices',      builder: (_, __) => const NoticeBoardScreen()),
-          GoRoute(path: 'reports',      builder: (_, __) => const ReportsScreen()),
-          GoRoute(path: 'settings',     builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'classes', builder: (_, __) => const ClassesScreen()),
+          GoRoute(path: 'fees', builder: (_, __) => const Scaffold(body: Center(child: Text('Fees – Coming Soon')))),
+          GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
+          GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
+          GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -79,13 +99,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teacher/home',
         builder: (_, __) => const TeacherHomeScreen(),
         routes: [
-          GoRoute(path: 'attendance',  builder: (_, __) => const AttendanceScreen()),
-          GoRoute(path: 'classes',     builder: (_, __) => const TeacherClassesScreen()),
+          GoRoute(path: 'attendance', builder: (_, __) => const AttendanceScreen()),
+          GoRoute(path: 'classes', builder: (_, __) => const TeacherClassesScreen()),
           GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
-          GoRoute(path: 'grades',      builder: (_, __) => const GradesScreen()),
-          GoRoute(path: 'timetable',   builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
-          GoRoute(path: 'messages',    builder: (_, __) => const Scaffold(body: Center(child: Text('Messages – Coming Soon')))),
-          GoRoute(path: 'profile',     builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
+          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
+          GoRoute(path: 'messages', builder: (_, __) => const Scaffold(body: Center(child: Text('Messages – Coming Soon')))),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -94,19 +114,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/student/home',
         builder: (_, __) => const StudentHomeScreen(),
         routes: [
-          GoRoute(path: 'timetable',      builder: (_, __) => const Scaffold(body: Center(child: Text('Timetable – Coming Soon')))),
-          GoRoute(path: 'assignments',    builder: (_, __) => const StudentAssignmentsScreen()),
-          GoRoute(path: 'results',        builder: (_, __) => const Scaffold(body: Center(child: Text('Results – Coming Soon')))),
-          GoRoute(path: 'notifications',  builder: (_, __) => const Scaffold(body: Center(child: Text('Notifications – Coming Soon')))),
-          GoRoute(path: 'profile',        builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
+          GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
+          GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
+          GoRoute(path: 'results',   builder: (_, __) => const StudentResultsScreen()),     
+          GoRoute(path: 'attendance-view', builder: (_, __) => const StudentAttendanceScreen()),
+          GoRoute(path: 'notices',   builder: (_, __) => const StudentNoticesScreen()),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen(),
+),
         ],
       ),
 
       // ── Shared ─────────────────────────────────────────────────────────────
-      GoRoute(path: '/profile',       builder: (_, __) => const ProfileScreen()),
-      GoRoute(path: '/profile/edit',  builder: (_, __) => const Scaffold(body: Center(child: Text('Edit Profile – Coming Soon')))),
-      GoRoute(path: '/help',          builder: (_, __) => const Scaffold(body: Center(child: Text('Help – Coming Soon')))),
-      GoRoute(path: '/about',         builder: (_, __) => const Scaffold(body: Center(child: Text('About – Coming Soon')))),
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: '/profile/edit', builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
+      GoRoute(path: '/help', builder: (_, __) => const Scaffold(body: Center(child: Text('Help – Coming Soon')))),
+      GoRoute(path: '/about', builder: (_, __) => const Scaffold(body: Center(child: Text('About – Coming Soon')))),
     ],
 
     errorBuilder: (_, state) => Scaffold(
