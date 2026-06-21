@@ -9,7 +9,7 @@ import 'package:school_management_system/features/admin/teacher_list_screen.dart
 import 'package:school_management_system/features/admin/teachers/add/add_teacher_screen.dart';
 import 'package:school_management_system/features/admin/add_student_screen.dart';
 import 'package:school_management_system/features/admin/reports_screen.dart';
-import 'package:school_management_system/features/admin/timetable/timetable_screen.dart';
+import 'package:school_management_system/features/admin/fees/fee_managemnet.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/shared/notification/notifications.dart';
 import 'package:school_management_system/features/shared/profile/edit_profile/edit_profile_screen.dart';
@@ -28,6 +28,7 @@ import 'package:school_management_system/features/teacher/assignments/assignemen
 import 'package:school_management_system/features/teacher/attendence/attendence_screen.dart';
 import 'package:school_management_system/features/teacher/grades/grades_screen.dart';
 import 'package:school_management_system/features/teacher/teacher_home_screen.dart';
+import 'package:school_management_system/features/shared/timetable/timetable_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 // ── Router Provider ───────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onLogin = loc == '/login';
       final onPending = loc == '/pending';
 
-      // Always allow splash and onboarding
+      // Always allow splash and onboarding.
       if (onSplash || onBoarding) return null;
 
       // Not logged in → go to login
@@ -56,7 +57,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Logged in but pending → only allow /pending
       if (isLoggedIn && isPending && !onPending) return '/pending';
 
-      // Logged in, not pending, on login page or pending page → redirect to dashboard
+      // Logged in, not pending, on login/pending page → redirect to dashboard
       if (isLoggedIn && !isPending && (onLogin || onPending)) {
         return switch (role) {
           'admin' => '/admin/home',
@@ -82,12 +83,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
           GoRoute(path: 'students', builder: (_, __) => const StudentListScreen()),
-          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
+          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen(role: 'admin')),
           GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
           GoRoute(path: 'teachers', builder: (_, __) => const TeacherListScreen()),
           GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
           GoRoute(path: 'classes', builder: (_, __) => const ClassesScreen()),
-          GoRoute(path: 'fees', builder: (_, __) => const Scaffold(body: Center(child: Text('Fees – Coming Soon')))),
+          GoRoute(path: 'fees', builder: (_, __) => const FeeManagementScreen()),
           GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
           GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
           GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
@@ -103,7 +104,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'classes', builder: (_, __) => const TeacherClassesScreen()),
           GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
           GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
-          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
+          GoRoute(
+            path: 'timetable',
+            builder: (_, __) => const TimetableScreen(role: 'teacher'),
+          ),
           GoRoute(path: 'messages', builder: (_, __) => const Scaffold(body: Center(child: Text('Messages – Coming Soon')))),
           GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
@@ -114,15 +118,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/student/home',
         builder: (_, __) => const StudentHomeScreen(),
         routes: [
-          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen()),
+          GoRoute(
+            path: 'timetable',
+            builder: (_, __) => const TimetableScreen(role: 'student'),
+          ),
           GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
           GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
-          GoRoute(path: 'results',   builder: (_, __) => const StudentResultsScreen()),     
-          GoRoute(path: 'attendance-view', builder: (_, __) => const StudentAttendanceScreen()),
-          GoRoute(path: 'notices',   builder: (_, __) => const StudentNoticesScreen()),
+          // NOTE: previously this route ('results') was registered TWICE in
+          // this list, which made go_router throw a duplicate-route
+          // assertion at startup. Fixed by keeping a single registration.
+          GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
+          GoRoute(path: 'attendance', builder: (_, __) => const StudentAttendanceScreen()),
+          GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
           GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
-          GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen(),
-),
         ],
       ),
 

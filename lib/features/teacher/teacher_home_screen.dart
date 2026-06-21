@@ -1,30 +1,37 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/repositories/teacher_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 class TeacherHomeScreen extends ConsumerWidget {
   const TeacherHomeScreen({super.key});
 
+  static const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final uid = user?.uid;
+    final teacherName = user?.displayName ?? 'Teacher';
+    final today = _weekdayNames[DateTime.now().weekday - 1];
+    final dateLabel = DateFormat('EEEE, MMMM d').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // ── Header ──────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _TeacherHeader(userName: user?.displayName ?? 'Teacher'),
+              child: _TeacherHeader(userName: teacherName, dateLabel: dateLabel),
             ),
-
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            // ── Today's Classes ─────────────────────────────────
+            // ── Today's Classes (real data) ─────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -32,30 +39,20 @@ class TeacherHomeScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text("Today's Classes", style: AppTextStyles.sectionTitle),
-                    TextButton(onPressed: () => context.push('/teacher/timetable'), child: const Text('See All')),
+                    TextButton(onPressed: () => context.push('/teacher/home/timetable'), child: const Text('See All')),
                   ],
                 ),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 140,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: const [
-                    _ClassCard(subject: 'Mathematics', grade: 'Grade 9A', time: '08:00 – 09:00', room: 'Room 101', status: ClassStatus.ongoing),
-                    _ClassCard(subject: 'Physics', grade: 'Grade 10B', time: '10:00 – 11:00', room: 'Room 204', status: ClassStatus.upcoming),
-                    _ClassCard(subject: 'Mathematics', grade: 'Grade 8C', time: '12:00 – 01:00', room: 'Room 101', status: ClassStatus.upcoming),
-                  ],
-                ),
-              ),
+              child: uid == null
+                  ? const SizedBox.shrink()
+                  : _TodaysClasses(uid: uid, teacherName: teacherName, day: today),
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // ── Quick Actions ────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -82,7 +79,7 @@ class TeacherHomeScreen extends ConsumerWidget {
 
             const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-            // ── Pending Tasks ────────────────────────────────────
+            // ── Pending Tasks (real data: ungraded assignments + today's attendance) ──
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -90,14 +87,12 @@ class TeacherHomeScreen extends ConsumerWidget {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 14)),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                _TaskItem(title: 'Mark attendance – Grade 9A', subtitle: 'Due today', icon: Icons.how_to_reg_rounded, color: AppColors.teacherColor, isDone: false),
-                _TaskItem(title: 'Grade assignment – Grade 10B', subtitle: '5 submissions pending', icon: Icons.assignment_rounded, color: AppColors.primary, isDone: false),
-                _TaskItem(title: 'Submit monthly report', subtitle: 'Due Jun 30', icon: Icons.description_rounded, color: AppColors.accent, isDone: true),
-                const SizedBox(height: 32),
-              ]),
+            SliverToBoxAdapter(
+              child: uid == null
+                  ? const SizedBox.shrink()
+                  : _PendingTasks(uid: uid, teacherName: teacherName, day: today),
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
@@ -109,7 +104,8 @@ class TeacherHomeScreen extends ConsumerWidget {
 // ── Header ───────────────────────────────────────────────────────────────────
 class _TeacherHeader extends StatelessWidget {
   final String userName;
-  const _TeacherHeader({required this.userName});
+  final String dateLabel;
+  const _TeacherHeader({required this.userName, required this.dateLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -129,24 +125,15 @@ class _TeacherHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(userName, style: AppTextStyles.headingLarge.copyWith(color: Colors.white)),
               const SizedBox(height: 4),
-              Text('Monday, June 16', style: AppTextStyles.labelMedium.copyWith(color: Colors.white60)),
+              Text(dateLabel, style: AppTextStyles.labelMedium.copyWith(color: Colors.white60)),
             ],
           ),
-          Stack(
+          const Stack(
             children: [
               CircleAvatar(
                 radius: 26,
                 backgroundColor: Colors.white24,
-                child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(color: AppColors.success, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                ),
+                child: Icon(Icons.person_rounded, color: Colors.white, size: 28),
               ),
             ],
           ),
@@ -156,17 +143,101 @@ class _TeacherHeader extends StatelessWidget {
   }
 }
 
-// ── Class Card ───────────────────────────────────────────────────────────────
-enum ClassStatus { ongoing, upcoming, done }
-
-class _ClassCard extends StatelessWidget {
-  final String subject, grade, time, room;
-  final ClassStatus status;
-  const _ClassCard({required this.subject, required this.grade, required this.time, required this.room, required this.status});
+// ── Today's Classes (real data from `timetable`, filtered to teacher's classes) ──
+class _TodaysClasses extends StatelessWidget {
+  final String uid;
+  final String teacherName;
+  final String day;
+  const _TodaysClasses({required this.uid, required this.teacherName, required this.day});
 
   @override
   Widget build(BuildContext context) {
-    final isOngoing = status == ClassStatus.ongoing;
+    return StreamBuilder<List<String>>(
+      stream: TeacherRepository.instance.watchAssignedClassNames(uid: uid, teacherName: teacherName),
+      builder: (context, classesSnap) {
+        final classNames = classesSnap.data ?? const <String>[];
+        if (classNames.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text('No classes assigned yet.', style: TextStyle(fontFamily: 'Poppins', color: AppColors.textSecondary)),
+          );
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('timetable')
+              .where('day', isEqualTo: day)
+              .where('className', whereIn: classNames.length > 10 ? classNames.sublist(0, 10) : classNames)
+              .orderBy('period')
+              .snapshots(),
+          builder: (context, snap) {
+            final docs = snap.data?.docs ?? [];
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+            }
+            if (docs.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text('No classes scheduled for today.', style: TextStyle(fontFamily: 'Poppins', color: AppColors.textSecondary)),
+              );
+            }
+            final now = TimeOfDay.now();
+            return SizedBox(
+              height: 140,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final time = data['time'] as String? ?? '';
+                  final isOngoing = _isCurrentPeriod(time, now);
+                  return _ClassCard(
+                    subject: data['subject'] as String? ?? '',
+                    grade: data['className'] as String? ?? '',
+                    time: time,
+                    room: data['room'] as String? ?? '',
+                    isOngoing: isOngoing,
+                  );
+                }).toList(),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  bool _isCurrentPeriod(String timeRange, TimeOfDay now) {
+    try {
+      final parts = timeRange.split('–');
+      if (parts.length < 2) return false;
+      final start = _parseTime(parts[0].trim());
+      final end = _parseTime(parts[1].trim());
+      if (start == null || end == null) return false;
+      final nowMins = now.hour * 60 + now.minute;
+      return nowMins >= (start.hour * 60 + start.minute) && nowMins <= (end.hour * 60 + end.minute);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  TimeOfDay? _parseTime(String s) {
+    final parts = s.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+}
+
+class _ClassCard extends StatelessWidget {
+  final String subject, grade, time, room;
+  final bool isOngoing;
+  const _ClassCard({required this.subject, required this.grade, required this.time, required this.room, required this.isOngoing});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: 180,
       margin: const EdgeInsets.only(right: 14),
@@ -230,7 +301,85 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-// ── Task Item ────────────────────────────────────────────────────────────────
+// ── Pending Tasks (real: today's unmarked attendance + ungraded assignments) ──
+class _PendingTasks extends StatelessWidget {
+  final String uid;
+  final String teacherName;
+  final String day;
+  const _PendingTasks({required this.uid, required this.teacherName, required this.day});
+
+  @override
+  Widget build(BuildContext context) {
+    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    return StreamBuilder<List<String>>(
+      stream: TeacherRepository.instance.watchAssignedClassNames(uid: uid, teacherName: teacherName),
+      builder: (context, classesSnap) {
+        final classNames = classesSnap.data ?? const <String>[];
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('assignments')
+              .where('teacherId', isEqualTo: uid)
+              .orderBy('dueDate')
+              .limit(5)
+              .snapshots(),
+          builder: (context, assignSnap) {
+            final assignments = assignSnap.data?.docs ?? [];
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('attendance')
+                  .where('date', isEqualTo: todayKey)
+                  .snapshots(),
+              builder: (context, attSnap) {
+                final markedClasses = (attSnap.data?.docs ?? [])
+                    .map((d) => (d.data() as Map<String, dynamic>)['className'] as String?)
+                    .whereType<String>()
+                    .toSet();
+                final unmarkedClasses = classNames.where((c) => !markedClasses.contains(c)).toList();
+
+                final items = <Widget>[];
+
+                for (final c in unmarkedClasses) {
+                  items.add(_TaskItem(
+                    title: 'Mark attendance – $c',
+                    subtitle: 'Not marked today',
+                    icon: Icons.how_to_reg_rounded,
+                    color: AppColors.teacherColor,
+                    isDone: false,
+                  ));
+                }
+
+                for (final doc in assignments) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final dueDate = (data['dueDate'] as Timestamp?)?.toDate();
+                  items.add(_TaskItem(
+                    title: '${data['title'] ?? 'Assignment'} – ${data['className'] ?? ''}',
+                    subtitle: dueDate != null ? 'Due ${DateFormat('MMM d').format(dueDate)}' : 'No due date',
+                    icon: Icons.assignment_rounded,
+                    color: AppColors.primary,
+                    isDone: false,
+                  ));
+                }
+
+                if (items.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text('No pending tasks. You\'re all caught up!', style: TextStyle(fontFamily: 'Poppins', color: AppColors.textSecondary)),
+                  );
+                }
+
+                return Column(children: items);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _TaskItem extends StatelessWidget {
   final String title, subtitle;
   final IconData icon;

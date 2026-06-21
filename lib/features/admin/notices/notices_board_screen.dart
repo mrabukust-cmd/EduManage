@@ -2,21 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
-
-
-// ── Model ─────────────────────────────────────────────────────────────────────
-class NoticeModel {
-  final String id, title, body, date, author, category;
-  const NoticeModel({required this.id, required this.title, required this.body, required this.date, required this.author, required this.category});
-}
-
-const _notices = [
-  NoticeModel(id: '1', title: 'Annual Sports Day', body: 'Annual Sports Day is scheduled for June 20, 2025. All students are required to participate. Parents are welcome to attend. Uniform is compulsory.', date: 'Jun 16', author: 'Admin', category: 'Event'),
-  NoticeModel(id: '2', title: 'Mid-Term Exam Schedule', body: 'Mid-term exams will begin from June 24. Timetable is available on the school portal. Students are advised to prepare accordingly.', date: 'Jun 14', author: 'Academic Department', category: 'Exam'),
-  NoticeModel(id: '3', title: 'Fee Submission Deadline', body: 'Last date for fee submission for June is June 20, 2025. Late submissions will incur a fine of Rs. 200/day.', date: 'Jun 12', author: 'Accounts', category: 'Finance'),
-  NoticeModel(id: '4', title: 'Holiday Notification', body: 'School will remain closed on June 23 on account of Eid-ul-Adha. Classes will resume from June 27.', date: 'Jun 10', author: 'Admin', category: 'Holiday'),
-];
-
+import 'package:school_management_system/data/models/notice_model.dart';
+import 'package:school_management_system/data/repositories/notice_repo.dart';
 const _categoryColors = {
   'Event':   Color(0xFF7C3AED),
   'Exam':    Color(0xFF1A56DB),
@@ -36,13 +23,10 @@ class NoticeBoardScreen extends StatefulWidget {
 class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
   String _selectedCat = 'All';
   final _cats = ['All', 'Event', 'Exam', 'Finance', 'Holiday'];
+  final _repo = NoticeRepository.instance;
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _selectedCat == 'All'
-        ? _notices
-        : _notices.where((n) => n.category == _selectedCat).toList();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -84,13 +68,40 @@ class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
             ),
           ),
 
-          // ── Notices List ────────────────────────────────────
+          // ── Notices List (real Firestore data) ───────────────
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(20),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (_, i) => _NoticeCard(notice: filtered[i]),
+            child: StreamBuilder<List<NoticeModel>>(
+              stream: _repo.watchAll(category: _selectedCat),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snap.hasError) {
+                  return Center(
+                    child: Text('Failed to load notices', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                  );
+                }
+                final notices = snap.data ?? [];
+                if (notices.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.campaign_outlined, size: 64, color: AppColors.textHint),
+                        const SizedBox(height: 16),
+                        Text('No notices yet.\nTap + to add one.', textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: notices.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (_, i) => _NoticeCard(notice: notices[i], onDelete: () => _repo.delete(notices[i].id)),
+                );
+              },
             ),
           ),
         ],
@@ -99,36 +110,78 @@ class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
   }
 
   void _showAddNoticeSheet(BuildContext context) {
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    String category = 'General';
+    bool loading = false;
+    final formKey = GlobalKey<FormState>();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.cardBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 20),
-            Text('Add Notice', style: AppTextStyles.headingMedium),
-            const SizedBox(height: 16),
-            TextField(decoration: _inputDecor('Title')),
-            const SizedBox(height: 12),
-            TextField(maxLines: 3, decoration: _inputDecor('Description')),
-            const SizedBox(height: 12),
-            TextField(decoration: _inputDecor('Category (Event / Exam / Finance / Holiday)')),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: Text('Publish Notice', style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
-              ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheet) => Padding(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 20),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 20),
+                Text('Add Notice', style: AppTextStyles.headingMedium),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: titleCtrl,
+                  decoration: _inputDecor('Title'),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: bodyCtrl,
+                  maxLines: 3,
+                  decoration: _inputDecor('Description'),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  decoration: _inputDecor('Category'),
+                  items: const ['General', 'Event', 'Exam', 'Finance', 'Holiday']
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) => setSheet(() => category = v ?? 'General'),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: loading
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setSheet(() => loading = true);
+                            await _repo.create(NoticeModel(
+                              id: '',
+                              title: titleCtrl.text.trim(),
+                              body: bodyCtrl.text.trim(),
+                              category: category,
+                              author: 'Admin',
+                            ));
+                            if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                          },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    child: loading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text('Publish Notice', style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -146,7 +199,8 @@ class _NoticeBoardScreenState extends State<NoticeBoardScreen> {
 // ── Notice Card ───────────────────────────────────────────────────────────────
 class _NoticeCard extends StatelessWidget {
   final NoticeModel notice;
-  const _NoticeCard({required this.notice});
+  final VoidCallback onDelete;
+  const _NoticeCard({required this.notice, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +226,17 @@ class _NoticeCard extends StatelessWidget {
                   child: Text(notice.category, style: AppTextStyles.labelTiny.copyWith(color: color, fontWeight: FontWeight.w700)),
                 ),
                 const Spacer(),
-                Text(notice.date, style: AppTextStyles.labelTiny),
+                Text(notice.dateLabel, style: AppTextStyles.labelTiny),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textHint),
+                  onSelected: (v) {
+                    if (v == 'delete') onDelete();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 10),

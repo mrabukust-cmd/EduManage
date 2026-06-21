@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../../../core/widgets/custom_button.dart';
 import '../../../../../core/widgets/custom_text_field.dart';
 
-class AddTeacherScreen extends StatefulWidget {
+class AddTeacherScreen extends ConsumerStatefulWidget {
   const AddTeacherScreen({super.key});
 
   @override
-  State<AddTeacherScreen> createState() => _AddTeacherScreenState();
+  ConsumerState<AddTeacherScreen> createState() => _AddTeacherScreenState();
 }
 
-class _AddTeacherScreenState extends State<AddTeacherScreen> {
+class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -41,128 +41,49 @@ class _AddTeacherScreenState extends State<AddTeacherScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    try {
-      // Create Firebase Auth account for the teacher
-      final teacherCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
+    final classesList = _classesCtrl.text
+        .trim()
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    // FIXED: routed through AuthNotifier.adminCreateUser, which uses a
+    // secondary FirebaseApp instance so the admin's session is preserved.
+    final error = await ref.read(authProvider.notifier).adminCreateUser(
+          name: _nameCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
+          role: 'teacher',
+          extraData: {
+            'phone': _phoneCtrl.text.trim(),
+            'subject': _subjectCtrl.text.trim(),
+            'qualification': _qualificationCtrl.text.trim(),
+            'classes': classesList,
+          },
+        );
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: AppColors.danger),
       );
-      await teacherCred.user!.updateDisplayName(_nameCtrl.text.trim());
-
-      // Firestore docs
-      await FirebaseFirestore.instance.collection('users').doc(teacherCred.user!.uid).set({
-        'uid': teacherCred.user!.uid,
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'role': 'teacher',
-        'approved': true,
-        'photoUrl': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await FirebaseFirestore.instance.collection('teachers').doc(teacherCred.user!.uid).set({
-        'uid': teacherCred.user!.uid,
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
-        'subject': _subjectCtrl.text.trim(),
-        'qualification': _qualificationCtrl.text.trim(),
-        'classes': _classesCtrl.text
-            .trim()
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList(),
-        'approved': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Sign out teacher and redirect admin to re-login
-      await FirebaseAuth.instance.signOut();
-
-      if (mounted) _showSuccessDialog();
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        String msg = 'Failed to create account.';
-        if (e.code == 'email-already-in-use') msg = 'This email is already registered.';
-        if (e.code == 'weak-password') msg = 'Password must be at least 6 characters.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return;
     }
-  }
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
-            SizedBox(width: 10),
-            Text('Teacher Added!',
-                style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_nameCtrl.text.trim()} has been added successfully.',
-              style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline, color: AppColors.warning, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Please sign in again as admin to continue managing the school.',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12, height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              context.go('/login');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.teacherColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('OK, Sign In Again',
-                style: TextStyle(fontFamily: 'Poppins', color: Colors.white)),
-          ),
-        ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text('${_nameCtrl.text.trim()} has been added successfully.'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+    // Admin remains logged in — no need to route to /login.
+    context.pop();
   }
 
   @override
@@ -186,7 +107,6 @@ class _AddTeacherScreenState extends State<AddTeacherScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Info banner
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
@@ -201,14 +121,13 @@ class _AddTeacherScreenState extends State<AddTeacherScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Creating a teacher account. They will be able to login immediately.',
+                        'Creating a teacher account. They will be able to login immediately. You will stay signed in as admin.',
                         style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ),
                   ],
                 ),
               ),
-
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,

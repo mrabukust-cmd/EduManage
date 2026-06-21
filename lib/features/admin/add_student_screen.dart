@@ -1,20 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/core/widgets/custom_button.dart';
 import 'package:school_management_system/core/widgets/custom_text_field.dart';
+import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
-class AddStudentScreen extends StatefulWidget {
+class AddStudentScreen extends ConsumerStatefulWidget {
   const AddStudentScreen({super.key});
 
   @override
-  State<AddStudentScreen> createState() => _AddStudentScreenState();
+  ConsumerState<AddStudentScreen> createState() => _AddStudentScreenState();
 }
 
-class _AddStudentScreenState extends State<AddStudentScreen> {
+class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -24,7 +24,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   final _sectionCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
   bool _isSaving = false;
-  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -42,158 +41,43 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
 
-    try {
-      // Step 1: Remember the current admin's credentials
-      final currentAdmin = FirebaseAuth.instance.currentUser;
-      if (currentAdmin == null) throw Exception('Admin not logged in');
-
-      // Step 2: Create Firebase Auth account for the student
-      // We create via a secondary app approach — here we use the REST API trick:
-      // Sign in with the student email creates a new user, then we restore admin.
-      // Simplest: create the user, restore admin session with token refresh.
-
-      final adminEmail = currentAdmin.email!;
-
-      // Create student auth account
-      // Note: This will sign out admin temporarily — we restore immediately
-      UserCredential studentCred;
-      try {
-        // We need admin's password to restore — but we don't have it stored.
-        // Best approach: use Admin SDK (not available client-side).
-        // Client-side workaround: create user doesn't sign in if we use the
-        // createUser call carefully. Unfortunately Firebase client SDK always
-        // signs in the new user. So we save admin's ID token first.
-        final adminIdToken = await currentAdmin.getIdToken();
-
-        studentCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    // FIXED: this no longer creates the account on the admin's own
+    // FirebaseAuth session. AuthNotifier.adminCreateUser uses a secondary
+    // FirebaseApp internally, so the admin stays signed in the whole time.
+    final error = await ref.read(authProvider.notifier).adminCreateUser(
+          name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
+          role: 'student',
+          extraData: {
+            'rollNo': _rollCtrl.text.trim(),
+            'class': _classCtrl.text.trim(),
+            'section': _sectionCtrl.text.trim(),
+            'contact': _contactCtrl.text.trim(),
+          },
         );
 
-        await studentCred.user!.updateDisplayName(_nameCtrl.text.trim());
+    if (!mounted) return;
+    setState(() => _isSaving = false);
 
-        // Create Firestore docs for the student
-        await FirebaseFirestore.instance.collection('users').doc(studentCred.user!.uid).set({
-          'uid': studentCred.user!.uid,
-          'name': _nameCtrl.text.trim(),
-          'email': _emailCtrl.text.trim(),
-          'role': 'student',
-          'approved': true, // admin is adding => auto approved
-          'photoUrl': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        await FirebaseFirestore.instance.collection('students').doc(studentCred.user!.uid).set({
-          'uid': studentCred.user!.uid,
-          'name': _nameCtrl.text.trim(),
-          'email': _emailCtrl.text.trim(),
-          'rollNo': _rollCtrl.text.trim(),
-          'class': _classCtrl.text.trim(),
-          'section': _sectionCtrl.text.trim(),
-          'contact': _contactCtrl.text.trim(),
-          'approved': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // Step 3: Sign the student out and restore admin session
-        await FirebaseAuth.instance.signOut();
-        // Re-sign in admin — we need admin's email but not password here.
-        // Use the stored token to restore:
-        // Since we can't restore without password client-side,
-        // we prompt admin to sign in again OR we use a trick:
-        // Store admin credentials temporarily (not secure for prod).
-        // For this app, we show a dialog telling admin to re-login.
-        // Better UX: just sign admin back in using their stored session.
-
-        if (mounted) {
-          _showSuccessAndReloginPrompt();
-        }
-      } catch (createError) {
-        rethrow;
-      }
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      String msg = 'Failed to create student account.';
-      if (e.code == 'email-already-in-use') msg = 'This email is already registered.';
-      if (e.code == 'weak-password') msg = 'Password must be at least 6 characters.';
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
+        SnackBar(content: Text(error), backgroundColor: AppColors.danger),
       );
-      setState(() => _isSaving = false);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
-      );
-      setState(() => _isSaving = false);
+      return;
     }
-  }
 
-  void _showSuccessAndReloginPrompt() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
-            SizedBox(width: 10),
-            Text(
-              'Student Added!',
-              style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_nameCtrl.text.trim()} has been added successfully.',
-              style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline, color: AppColors.warning, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'You will need to sign in again as admin because Firebase signs in the new user automatically.',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12, height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Navigate to login — admin will re-authenticate
-              context.go('/login');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.adminColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('OK, Sign In Again',
-                style: TextStyle(fontFamily: 'Poppins', color: Colors.white)),
-          ),
-        ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text('${_nameCtrl.text.trim()} has been added successfully.'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+    // Admin is still logged in — just go back to the students list.
+    context.pop();
   }
 
   @override
@@ -216,7 +100,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Info banner
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
@@ -231,14 +114,13 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Creating a student account. They will be able to login immediately.',
+                        'Creating a student account. They will be able to login immediately. You will stay signed in as admin.',
                         style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ),
                   ],
                 ),
               ),
-
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,

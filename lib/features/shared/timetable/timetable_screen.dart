@@ -5,22 +5,22 @@ import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 
-// ── Place this file at:
-// lib/features/shared/timetable/timetable_screen.dart
-//
-// Add to Firestore: collection 'timetable' with docs like:
-//   { day: 'Monday', period: 1, subject: 'Math', teacher: 'Mr. Khalid',
-//     room: 'Room 101', time: '08:00-09:00', className: 'Grade 9A' }
-//
-// Admin: update route path: '/admin/home/timetable'
-// Teacher: update route path: '/teacher/home/timetable'
-// Student: update route path: '/student/home/timetable'
-
+/// Single Timetable screen used by admin, teacher, and student.
+///
+/// Previously this app had TWO separate timetable implementations:
+///   - lib/features/admin/timetable/timetable_screen.dart (admin-only,
+///     class-filtered, had an "Add Slot" sheet)
+///   - lib/features/shared/timetable/timetable_screen.dart (day-tabbed,
+///     used by all three roles, also had an "Add Period" sheet)
+/// They duplicated nearly identical Firestore queries against the same
+/// `timetable` collection. This file merges them: day tabs + role theming
+/// from the shared version, with full add/delete capability gated on
+/// `role == 'admin'`, and an optional `filterClass` for teacher/student.
 class TimetableScreen extends ConsumerStatefulWidget {
-  /// Pass the class name to filter (e.g. 'Grade 9A') or null for all classes (admin)
+  /// Pass the class name to filter (e.g. 'Grade 9A') or null for all classes.
   final String? filterClass;
 
-  /// Role color for theming ('admin', 'teacher', 'student')
+  /// 'admin' | 'teacher' | 'student' — drives theming and edit permissions.
   final String role;
 
   const TimetableScreen({
@@ -35,12 +35,12 @@ class TimetableScreen extends ConsumerStatefulWidget {
 
 class _TimetableScreenState extends ConsumerState<TimetableScreen>
     with SingleTickerProviderStateMixin {
-  static const _days = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
-  ];
+  static const _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   late TabController _tabController;
   int _todayIndex = 0;
+
+  bool get _isAdmin => widget.role == 'admin';
 
   Color get _roleColor {
     switch (widget.role) {
@@ -53,14 +53,24 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
     }
   }
 
+  Gradient get _roleGradient {
+    switch (widget.role) {
+      case 'admin':
+        return AppColors.adminGradient;
+      case 'teacher':
+        return AppColors.teacherGradient;
+      default:
+        return AppColors.studentGradient;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // Set tab to today's day (Mon=0 … Fri=4); default Mon if weekend
     final weekday = DateTime.now().weekday; // 1=Mon … 7=Sun
     _todayIndex = (weekday >= 1 && weekday <= 5) ? weekday - 1 : 0;
-    _tabController = TabController(
-        length: _days.length, vsync: this, initialIndex: _todayIndex);
+    _tabController =
+        TabController(length: _days.length, vsync: this, initialIndex: _todayIndex);
   }
 
   @override
@@ -80,9 +90,8 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text('Timetable',
-            style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
-        actions: widget.role == 'admin'
+        title: Text('Timetable', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+        actions: _isAdmin
             ? [
                 IconButton(
                   icon: const Icon(Icons.add_rounded, color: Colors.white),
@@ -97,19 +106,20 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white54,
-          labelStyle: AppTextStyles.labelSmall
-              .copyWith(fontWeight: FontWeight.w700, color: Colors.white),
+          labelStyle: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
           tabs: _days.map((d) => Tab(text: d.substring(0, 3))).toList(),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: _days.map((day) => _DayView(
-          day: day,
-          filterClass: widget.filterClass,
-          roleColor: _roleColor,
-          isAdmin: widget.role == 'admin',
-        )).toList(),
+        children: _days
+            .map((day) => _DayView(
+                  day: day,
+                  filterClass: widget.filterClass,
+                  roleColor: _roleColor,
+                  isAdmin: _isAdmin,
+                ))
+            .toList(),
       ),
     );
   }
@@ -119,7 +129,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
     final teacherCtrl = TextEditingController();
     final roomCtrl = TextEditingController();
     final timeCtrl = TextEditingController();
-    final classCtrl = TextEditingController();
+    final classCtrl = TextEditingController(text: widget.filterClass ?? '');
     String selectedDay = _days[_tabController.index];
     int period = 1;
     bool loading = false;
@@ -129,8 +139,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.cardBg,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetCtx) => StatefulBuilder(
         builder: (sheetCtx, setSheet) => Padding(
           padding: EdgeInsets.only(
@@ -149,35 +158,29 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
                   child: Container(
                     width: 40,
                     height: 4,
-                    decoration: BoxDecoration(
-                        color: AppColors.divider,
-                        borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Text('Add Period', style: AppTextStyles.headingMedium),
                 const SizedBox(height: 16),
-                // Day + Period row
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: selectedDay,
+                        initialValue: selectedDay,
                         decoration: _inputDecor('Day'),
-                        items: _days
-                            .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                            .toList(),
+                        items: _days.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                         onChanged: (v) => setSheet(() => selectedDay = v!),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<int>(
-                        value: period,
+                        initialValue: period,
                         decoration: _inputDecor('Period'),
                         items: List.generate(8, (i) => i + 1)
-                            .map((n) => DropdownMenuItem(
-                                value: n, child: Text('Period $n')))
+                            .map((n) => DropdownMenuItem(value: n, child: Text('Period $n')))
                             .toList(),
                         onChanged: (v) => setSheet(() => period = v!),
                       ),
@@ -207,9 +210,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
                         : () async {
                             if (!formKey.currentState!.validate()) return;
                             setSheet(() => loading = true);
-                            await FirebaseFirestore.instance
-                                .collection('timetable')
-                                .add({
+                            await FirebaseFirestore.instance.collection('timetable').add({
                               'day': selectedDay,
                               'period': period,
                               'time': timeCtrl.text.trim(),
@@ -222,20 +223,13 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
                             if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.adminColor,
+                      backgroundColor: _roleColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : Text('Save Period',
-                            style: AppTextStyles.bodyMediumBold
-                                .copyWith(color: Colors.white)),
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text('Save Period', style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
                   ),
                 ),
               ],
@@ -258,14 +252,9 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen>
         labelText: label,
         filled: true,
         fillColor: AppColors.background,
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.divider)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.divider)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       );
 }
 
@@ -285,16 +274,16 @@ class _DayView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Query query = FirebaseFirestore.instance
+    Query<Map<String, dynamic>> query = FirebaseFirestore.instance
         .collection('timetable')
         .where('day', isEqualTo: day)
         .orderBy('period');
 
-    if (filterClass != null) {
+    if (filterClass != null && filterClass!.isNotEmpty) {
       query = query.where('className', isEqualTo: filterClass);
     }
 
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: query.snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
@@ -308,17 +297,12 @@ class _DayView extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.event_busy_rounded,
-                    size: 56, color: AppColors.textHint),
+                const Icon(Icons.event_busy_rounded, size: 56, color: AppColors.textHint),
                 const SizedBox(height: 16),
-                Text('No classes on $day',
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: AppColors.textSecondary)),
+                Text('No classes on $day', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
                 if (isAdmin) ...[
                   const SizedBox(height: 8),
-                  Text('Tap + to add periods',
-                      style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.textHint)),
+                  Text('Tap + to add periods', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
                 ],
               ],
             ),
@@ -332,7 +316,7 @@ class _DayView extends StatelessWidget {
           itemCount: docs.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, i) {
-            final data = docs[i].data() as Map<String, dynamic>;
+            final data = docs[i].data();
             final time = data['time'] as String? ?? '';
             final isNow = _isCurrentPeriod(time, now);
 
@@ -407,15 +391,12 @@ class _PeriodCard extends StatelessWidget {
         color: isNow ? roleColor : AppColors.cardBg,
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppColors.cardShadow,
-        border: isNow
-            ? null
-            : Border.all(color: AppColors.divider, width: 1),
+        border: isNow ? null : Border.all(color: AppColors.divider, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Period number bubble
             Container(
               width: 42,
               height: 42,
@@ -435,73 +416,41 @@ class _PeriodCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     subject,
-                    style: AppTextStyles.bodyMediumBold.copyWith(
-                      color: isNow ? Colors.white : AppColors.textPrimary,
-                    ),
+                    style: AppTextStyles.bodyMediumBold.copyWith(color: isNow ? Colors.white : AppColors.textPrimary),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.person_outline_rounded,
-                          size: 13,
-                          color: isNow
-                              ? Colors.white70
-                              : AppColors.textSecondary),
+                      Icon(Icons.person_outline_rounded, size: 13, color: isNow ? Colors.white70 : AppColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text(teacher,
-                          style: AppTextStyles.labelSmall.copyWith(
-                              color: isNow
-                                  ? Colors.white70
-                                  : AppColors.textSecondary)),
+                      Text(teacher, style: AppTextStyles.labelSmall.copyWith(color: isNow ? Colors.white70 : AppColors.textSecondary)),
                       const SizedBox(width: 10),
-                      Icon(Icons.room_outlined,
-                          size: 13,
-                          color: isNow
-                              ? Colors.white70
-                              : AppColors.textSecondary),
+                      Icon(Icons.room_outlined, size: 13, color: isNow ? Colors.white70 : AppColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text(room,
-                          style: AppTextStyles.labelSmall.copyWith(
-                              color: isNow
-                                  ? Colors.white70
-                                  : AppColors.textSecondary)),
+                      Text(room, style: AppTextStyles.labelSmall.copyWith(color: isNow ? Colors.white70 : AppColors.textSecondary)),
                     ],
                   ),
                   if (className.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(className,
-                        style: AppTextStyles.labelTiny.copyWith(
-                            color: isNow
-                                ? Colors.white60
-                                : AppColors.textHint)),
+                    Text(className, style: AppTextStyles.labelTiny.copyWith(color: isNow ? Colors.white60 : AppColors.textHint)),
                   ],
                 ],
               ),
             ),
-
-            // Time + Now badge
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (isNow)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text('Now',
-                        style: AppTextStyles.labelTiny
-                            .copyWith(color: Colors.white)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                    child: Text('Now', style: AppTextStyles.labelTiny.copyWith(color: Colors.white)),
                   ),
                 const SizedBox(height: 4),
                 Text(
@@ -514,12 +463,8 @@ class _PeriodCard extends StatelessWidget {
                 if (isAdmin) ...[
                   const SizedBox(height: 4),
                   GestureDetector(
-                    onTap: () => FirebaseFirestore.instance
-                        .collection('timetable')
-                        .doc(docId)
-                        .delete(),
-                    child: Icon(Icons.delete_outline_rounded,
-                        size: 18, color: isNow ? Colors.white60 : AppColors.textHint),
+                    onTap: () => FirebaseFirestore.instance.collection('timetable').doc(docId).delete(),
+                    child: Icon(Icons.delete_outline_rounded, size: 18, color: isNow ? Colors.white60 : AppColors.textHint),
                   ),
                 ],
               ],

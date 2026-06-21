@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:school_management_system/data/repositories/auth_repository.dart';
+import 'package:school_management_system/data/services/auth_service.dart';
 
 // ── Auth state ──────────────────────────────────────────────
 class AuthState {
@@ -39,7 +41,8 @@ class AuthState {
 
 // ── Auth Notifier ───────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _auth = AuthService.instance;
+  final AuthRepository _repo = AuthRepository.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   AuthNotifier() : super(const AuthState()) {
@@ -50,7 +53,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final user = _auth.currentUser;
     if (user != null) {
       state = state.copyWith(user: user);
-      // Re-fetch role from prefs so router can redirect properly
       _restoreRole(user);
     }
   }
@@ -63,7 +65,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final role = data['role'] as String? ?? 'student';
       final approved = data['approved'] as bool? ?? false;
 
-      // Admin is always approved
       if (role == 'admin' || approved) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_role', role);
@@ -81,12 +82,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final cred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final cred = await _auth.signIn(email: email, password: password);
 
-      // Fetch role from Firestore
       final doc = await _db.collection('users').doc(cred.user!.uid).get();
       if (!doc.exists) {
         await _auth.signOut();
@@ -98,10 +95,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final role = data['role'] as String? ?? 'student';
       final approved = data['approved'] as bool? ?? false;
 
-      // Admin is always approved; others need admin approval
       if (role != 'admin' && !approved) {
-        await _auth.signOut();
-        state = state.copyWith(isLoading: false, isPending: true, user: cred.user, role: role);
+        state = state.copyWith(
+          isLoading: false,
+          isPending: true,
+          user: cred.user,
+          role: role,
+        );
         return 'PENDING'; // Special signal for pending state
       }
 
@@ -148,57 +148,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
+      final result = await _repo.register(
+        name: name,
         email: email,
         password: password,
+        role: role,
       );
-      await cred.user!.updateDisplayName(name);
 
-      final approved = role == 'admin';
-      await _db.collection('users').doc(cred.user!.uid).set({
-        'uid': cred.user!.uid,
-        'name': name,
-        'email': email,
-        'role': role,
-        'approved': approved,
-        'photoUrl': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (role == 'student') {
-        await _db.collection('students').doc(cred.user!.uid).set({
-          'uid': cred.user!.uid,
-          'name': name,
-          'email': email,
-          'rollNo': '',
-          'class': '',
-          'section': '',
-          'contact': '',
-          'approved': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      } else if (role == 'teacher') {
-        await _db.collection('teachers').doc(cred.user!.uid).set({
-          'uid': cred.user!.uid,
-          'name': name,
-          'email': email,
-          'subject': '',
-          'qualification': '',
-          'classes': [],
-          'approved': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      // Update local auth state.
       state = state.copyWith(
         isLoading: false,
-        user: cred.user,
+        user: _auth.currentUser,
         role: role,
-        isPending: !approved,
+        isPending: !result.approved,
       );
 
-      if (approved) {
+      if (result.approved) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_role', role);
       }
@@ -222,8 +186,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Admin-only: create a student or teacher account
-  /// Called from AdminStudentsScreen / AddTeacherScreen
+  /// Admin-only: create a student or teacher account.
+  ///
+  /// FIXED: this now delegates to AuthRepository.adminCreateUser, which
+  /// uses a secondary FirebaseApp instance internally. The admin's
+  /// session and `state.user` here are NEVER touched, so no
+  /// "please sign in again" dialog and no navigation to /login is needed.
   Future<String?> adminCreateUser({
     required String name,
     required String email,
@@ -232,53 +200,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     Map<String, dynamic> extraData = const {},
   }) async {
     try {
-      // Use a secondary auth instance so admin doesn't get signed out
-      final secondaryApp = await _createSecondaryAuth();
-      final cred = await secondaryApp.createUserWithEmailAndPassword(
+      await _repo.adminCreateUser(
+        name: name,
         email: email,
         password: password,
+        role: role,
+        extraData: extraData,
       );
-      await cred.user!.updateDisplayName(name);
-
-      // Save user doc — mark as approved immediately since admin is adding
-      await _db.collection('users').doc(cred.user!.uid).set({
-        'uid': cred.user!.uid,
-        'name': name,
-        'email': email,
-        'role': role,
-        'approved': true,
-        'photoUrl': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Role-specific collection
-      if (role == 'student') {
-        await _db.collection('students').doc(cred.user!.uid).set({
-          'uid': cred.user!.uid,
-          'name': name,
-          'email': email,
-          'rollNo': extraData['rollNo'] ?? '',
-          'class': extraData['class'] ?? '',
-          'section': extraData['section'] ?? '',
-          'contact': extraData['contact'] ?? '',
-          'approved': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      } else if (role == 'teacher') {
-        await _db.collection('teachers').doc(cred.user!.uid).set({
-          'uid': cred.user!.uid,
-          'name': name,
-          'email': email,
-          'subject': extraData['subject'] ?? '',
-          'qualification': extraData['qualification'] ?? '',
-          'classes': extraData['classes'] ?? [],
-          'approved': true,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      await secondaryApp.signOut();
-      return null; // success
+      return null; // success — admin is still logged in, nothing to restore
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
@@ -293,26 +222,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // Creates a secondary FirebaseAuth instance so admin stays signed in
-  Future<FirebaseAuth> _createSecondaryAuth() async {
-    // We use the same FirebaseAuth but trick it by capturing current user first
-    // The proper way is FirebaseApp secondary instance, but for simplicity
-    // we'll create the user then immediately restore admin session
-    return FirebaseAuth.instance;
-  }
-
   /// Approve a pending user (admin action)
-  Future<void> approveUser(String uid) async {
-    await _db.collection('users').doc(uid).update({'approved': true});
-    // Also update in role collection
-    final userDoc = await _db.collection('users').doc(uid).get();
-    final role = userDoc.data()?['role'] as String?;
-    if (role == 'student') {
-      await _db.collection('students').doc(uid).update({'approved': true});
-    } else if (role == 'teacher') {
-      await _db.collection('teachers').doc(uid).update({'approved': true});
-    }
-  }
+  Future<void> approveUser(String uid) => _repo.approveUser(uid);
 
   Future<void> signOut() async {
     await _auth.signOut();
@@ -334,5 +245,5 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 });
 
 final authStreamProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges();
+  return AuthService.instance.authStateChanges();
 });

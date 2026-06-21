@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
-
 
 class StudentHomeScreen extends ConsumerWidget {
   const StudentHomeScreen({super.key});
@@ -12,30 +13,28 @@ class StudentHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final uid = user?.uid;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // ── Header ──────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _StudentHeader(userName: user?.displayName ?? 'Student'),
+              child: _StudentHeader(userName: user?.displayName ?? 'Student', uid: uid),
             ),
-
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            // ── Attendance Summary ────────────────────────────────
+            // ── Attendance Summary (real data) ────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _AttendanceCard(),
+                child: _AttendanceCard(uid: uid),
               ),
             ),
-
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            // ── Today's Schedule ──────────────────────────────────
+            // ── Today's Schedule (real data, filtered to student's class) ──
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -49,18 +48,11 @@ class StudentHomeScreen extends ConsumerWidget {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                _ScheduleItem(time: '08:00', subject: 'Mathematics', teacher: 'Mr. Khalid', room: 'Room 101', isNow: true),
-                _ScheduleItem(time: '10:00', subject: 'Physics', teacher: 'Ms. Sana', room: 'Room 204', isNow: false),
-                _ScheduleItem(time: '12:00', subject: 'English', teacher: 'Mr. Arif', room: 'Room 105', isNow: false),
-                _ScheduleItem(time: '14:00', subject: 'Chemistry', teacher: 'Ms. Hina', room: 'Lab 2', isNow: false),
-              ]),
-            ),
+            SliverToBoxAdapter(child: _TodaysSchedule(uid: uid)),
 
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-            // ── Pending Assignments ───────────────────────────────
+            // ── Pending Assignments (real data) ───────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -68,20 +60,14 @@ class StudentHomeScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Pending Assignments', style: AppTextStyles.sectionTitle),
-                    TextButton(onPressed: () => context.push('/student/assignments'), child: const Text('See All')),
+                    TextButton(onPressed: () => context.push('/student/home/assignments'), child: const Text('See All')),
                   ],
                 ),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                _AssignmentItem(subject: 'Mathematics', title: 'Chapter 5 – Exercises 1–20', dueDate: 'Jun 18', isUrgent: true),
-                _AssignmentItem(subject: 'Physics', title: 'Lab Report – Motion', dueDate: 'Jun 20', isUrgent: false),
-                _AssignmentItem(subject: 'English', title: 'Essay – My Future Career', dueDate: 'Jun 22', isUrgent: false),
-                const SizedBox(height: 32),
-              ]),
-            ),
+            SliverToBoxAdapter(child: _PendingAssignments(uid: uid)),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
@@ -93,7 +79,8 @@ class StudentHomeScreen extends ConsumerWidget {
 // ── Header ───────────────────────────────────────────────────────────────────
 class _StudentHeader extends StatelessWidget {
   final String userName;
-  const _StudentHeader({required this.userName});
+  final String? uid;
+  const _StudentHeader({required this.userName, required this.uid});
 
   @override
   Widget build(BuildContext context) {
@@ -117,32 +104,30 @@ class _StudentHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(userName, style: AppTextStyles.headingLarge.copyWith(color: Colors.white)),
                 const SizedBox(height: 4),
-                Text('Grade 9 – Section A', style: AppTextStyles.labelMedium.copyWith(color: Colors.white60)),
+                if (uid != null)
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance.collection('students').doc(uid).snapshots(),
+                    builder: (context, snap) {
+                      final data = snap.data?.data() as Map<String, dynamic>?;
+                      final className = data?['class'] as String? ?? '';
+                      final section = data?['section'] as String? ?? '';
+                      final label = [className, section].where((s) => s.isNotEmpty).join(' – ');
+                      return Text(label.isEmpty ? 'Class not assigned yet' : label,
+                          style: AppTextStyles.labelMedium.copyWith(color: Colors.white60));
+                    },
+                  ),
               ],
             ),
           ),
           IconButton(
             onPressed: () => context.push('/student/notifications'),
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_rounded, color: Colors.white, size: 28),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                  ),
-                ),
-              ],
-            ),
+            icon: const Icon(Icons.notifications_rounded, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 4),
-          CircleAvatar(
+          const CircleAvatar(
             radius: 22,
             backgroundColor: Colors.white24,
-            child: const Icon(Icons.person_rounded, color: Colors.white, size: 24),
+            child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
           ),
         ],
       ),
@@ -150,48 +135,75 @@ class _StudentHeader extends StatelessWidget {
   }
 }
 
-// ── Attendance Card ──────────────────────────────────────────────────────────
+// ── Attendance Card (real data from `attendance` collection) ─────────────────
 class _AttendanceCard extends StatelessWidget {
-  const _AttendanceCard();
+  final String? uid;
+  const _AttendanceCard({required this.uid});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: Row(
-        children: [
-          // Circle progress
-          SizedBox(
-            width: 72,
-            height: 72,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(value: 0.87, strokeWidth: 7, backgroundColor: AppColors.studentColor.withOpacity(0.15), valueColor: const AlwaysStoppedAnimation(AppColors.studentColor)),
-                Text('87%', style: AppTextStyles.statValue.copyWith(fontSize: 14)),
-              ],
-            ),
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('attendance')
+          .where('studentId', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        int present = 0, absent = 0, leave = 0;
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final status = data['status'] as String? ?? 'absent';
+          if (status == 'present') present++;
+          else if (status == 'leave') leave++;
+          else absent++;
+        }
+        final total = docs.length;
+        final pct = total > 0 ? present / total : 0.0;
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: AppColors.cardShadow,
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Attendance', style: AppTextStyles.bodyMediumBold),
-                const SizedBox(height: 6),
-                _AttRow(label: 'Present', value: '52 days', color: Colors.green),
-                _AttRow(label: 'Absent', value: '8 days', color: Colors.redAccent),
-                _AttRow(label: 'Leave', value: '0 days', color: Colors.orange),
-              ],
-            ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: total == 0 ? 0 : pct,
+                      strokeWidth: 7,
+                      backgroundColor: AppColors.studentColor.withOpacity(0.15),
+                      valueColor: const AlwaysStoppedAnimation(AppColors.studentColor),
+                    ),
+                    Text(total == 0 ? '--' : '${(pct * 100).round()}%', style: AppTextStyles.statValue.copyWith(fontSize: 14)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Attendance', style: AppTextStyles.bodyMediumBold),
+                    const SizedBox(height: 6),
+                    _AttRow(label: 'Present', value: '$present days', color: Colors.green),
+                    _AttRow(label: 'Absent', value: '$absent days', color: Colors.redAccent),
+                    _AttRow(label: 'Leave', value: '$leave days', color: Colors.orange),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -217,7 +229,96 @@ class _AttRow extends StatelessWidget {
   }
 }
 
-// ── Schedule Item ─────────────────────────────────────────────────────────────
+// ── Today's Schedule (real data from `timetable` collection) ─────────────────
+class _TodaysSchedule extends StatelessWidget {
+  final String? uid;
+  const _TodaysSchedule({required this.uid});
+
+  static const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid == null) return const SizedBox.shrink();
+    final today = _weekdayNames[DateTime.now().weekday - 1];
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('students').doc(uid).snapshots(),
+      builder: (context, studentSnap) {
+        final className = (studentSnap.data?.data() as Map<String, dynamic>?)?['class'] as String?;
+        if (className == null || className.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text('No class assigned yet — your schedule will show once admin assigns you a class.',
+                style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
+          );
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('timetable')
+              .where('day', isEqualTo: today)
+              .where('className', isEqualTo: className)
+              .orderBy('period')
+              .snapshots(),
+          builder: (context, snap) {
+            final docs = snap.data?.docs ?? [];
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+              );
+            }
+            if (docs.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text('No classes scheduled for today.', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
+              );
+            }
+            final now = TimeOfDay.now();
+            return Column(
+              children: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final time = data['time'] as String? ?? '';
+                final isNow = _isCurrentPeriod(time, now);
+                return _ScheduleItem(
+                  time: time,
+                  subject: data['subject'] as String? ?? '',
+                  teacher: data['teacher'] as String? ?? '',
+                  room: data['room'] as String? ?? '',
+                  isNow: isNow,
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  bool _isCurrentPeriod(String timeRange, TimeOfDay now) {
+    try {
+      final parts = timeRange.split('–');
+      if (parts.length < 2) return false;
+      final start = _parseTime(parts[0].trim());
+      final end = _parseTime(parts[1].trim());
+      if (start == null || end == null) return false;
+      final nowMins = now.hour * 60 + now.minute;
+      return nowMins >= (start.hour * 60 + start.minute) && nowMins <= (end.hour * 60 + end.minute);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  TimeOfDay? _parseTime(String s) {
+    final parts = s.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+}
+
 class _ScheduleItem extends StatelessWidget {
   final String time, subject, teacher, room;
   final bool isNow;
@@ -261,7 +362,61 @@ class _ScheduleItem extends StatelessWidget {
   }
 }
 
-// ── Assignment Item ───────────────────────────────────────────────────────────
+// ── Pending Assignments (real data from `assignments` collection) ────────────
+class _PendingAssignments extends StatelessWidget {
+  final String? uid;
+  const _PendingAssignments({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('students').doc(uid).snapshots(),
+      builder: (context, studentSnap) {
+        final className = (studentSnap.data?.data() as Map<String, dynamic>?)?['class'] as String?;
+        if (className == null || className.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text('No class assigned yet.', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
+          );
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('assignments')
+              .where('className', isEqualTo: className)
+              .orderBy('dueDate')
+              .limit(5)
+              .snapshots(),
+          builder: (context, snap) {
+            final docs = snap.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text('No pending assignments. You\'re all caught up!', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
+              );
+            }
+            return Column(
+              children: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final dueDate = (data['dueDate'] as Timestamp?)?.toDate();
+                final isUrgent = dueDate != null && dueDate.difference(DateTime.now()).inDays <= 2;
+                return _AssignmentItem(
+                  subject: data['subject'] as String? ?? '',
+                  title: data['title'] as String? ?? '',
+                  dueDate: dueDate != null ? DateFormat('MMM d').format(dueDate) : '-',
+                  isUrgent: isUrgent,
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _AssignmentItem extends StatelessWidget {
   final String subject, title, dueDate;
   final bool isUrgent;
