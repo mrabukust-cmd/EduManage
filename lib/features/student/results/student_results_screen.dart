@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/data_helpers.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 // ── Place this file at:
@@ -97,8 +98,7 @@ class _OverallCard extends StatelessWidget {
       }
     }
     final avg = count > 0 ? totalPct / count : 0.0;
-    final grade = _letterGrade(avg);
-    final gradeColor = _gradeColor(avg);
+    final grade = DataHelpers.letterGrade(avg);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -211,8 +211,8 @@ class _ResultRow extends StatelessWidget {
     final marks = (data['marksObtained'] as num?)?.toDouble() ?? 0;
     final total = (data['totalMarks'] as num?)?.toDouble() ?? 100;
     final pct = (data['percentage'] as num?)?.toDouble() ?? 0;
-    final grade = _letterGrade(pct);
-    final gradeColor = _gradeColor(pct);
+    final grade = DataHelpers.letterGrade(pct);
+    final gradeColor = DataHelpers.gradeColor(pct);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -298,22 +298,4 @@ class _EmptyResults extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-String _letterGrade(double pct) {
-  if (pct >= 90) return 'A+';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'B+';
-  if (pct >= 60) return 'B';
-  if (pct >= 50) return 'C';
-  if (pct >= 40) return 'D';
-  return 'F';
-}
-
-Color _gradeColor(double pct) {
-  if (pct >= 80) return AppColors.success;
-  if (pct >= 60) return AppColors.primary;
-  if (pct >= 40) return AppColors.warning;
-  return AppColors.danger;
 }

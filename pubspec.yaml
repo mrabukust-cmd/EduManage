@@ -55,6 +55,9 @@ dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.15.0
   firebase_storage: ^13.4.3
+  firebase_messaging: ^16.4.0
+  firebase_messaging_web: ^4.2.1
+  firebase_messaging_handler: ^1.0.6
 
 dev_dependencies:
   flutter_test:

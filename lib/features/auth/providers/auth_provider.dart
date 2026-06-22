@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:school_management_system/data/repositories/auth_repository.dart';
 import 'package:school_management_system/data/services/auth_service.dart';
+import 'package:school_management_system/data/services/notification_service.dart';
 
 // ── Auth state ──────────────────────────────────────────────
 class AuthState {
@@ -228,7 +229,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Approve a pending user (admin action)
   Future<void> approveUser(String uid) => _repo.approveUser(uid);
 
-  Future<void> signOut() async {
+   Future<void> signOut() async {
+    await NotificationService.instance.clearTokenOnSignOut();
     await _auth.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_role');
