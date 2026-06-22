@@ -18,6 +18,7 @@ import 'package:school_management_system/features/shared/setting/change_password
 import 'package:school_management_system/features/student/my_attendence.dart/student_attendance_screen.dart';
 import 'package:school_management_system/features/student/notices/student_notices_screen.dart';
 import 'package:school_management_system/features/student/results/student_results_screen.dart';
+import 'package:school_management_system/features/teacher/attendance/class_attendence.dart';
 import 'package:school_management_system/features/teacher/classes/teacher_classes_screen.dart';
 import 'package:school_management_system/features/auth/login_screen.dart';
 import 'package:school_management_system/features/auth/screens/onboarding_screen.dart';
@@ -26,7 +27,7 @@ import 'package:school_management_system/features/shared/profile/profile_screen.
 import 'package:school_management_system/features/student/assignment/student_assignment_screen.dart';
 import 'package:school_management_system/features/student/student_home_screen.dart';
 import 'package:school_management_system/features/teacher/assignments/assignement_screen.dart';
-import 'package:school_management_system/features/teacher/attendence/attendence_screen.dart';
+import 'package:school_management_system/features/teacher/attendance/attendence_screen.dart';
 import 'package:school_management_system/features/teacher/grades/grades_screen.dart';
 import 'package:school_management_system/features/teacher/teacher_home_screen.dart';
 import 'package:school_management_system/features/shared/timetable/timetable_screen.dart';
@@ -109,6 +110,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const TeacherHomeScreen(),
         routes: [
           GoRoute(path: 'attendance', builder: (_, __) => const AttendanceScreen()),
+          GoRoute(
+            path: 'class_attendence/:className',
+            builder: (context, state) => ClassAttendanceScreen(
+              className: state.pathParameters['className']!,
+            ),
+          ),
           GoRoute(path: 'classes', builder: (_, __) => const TeacherClassesScreen()),
           GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
           GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
@@ -131,7 +138,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const TimetableScreen(role: 'student'),
           ),
           GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
-          GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
+          // GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
           GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
           GoRoute(path: 'attendance', builder: (_, __) => const StudentAttendanceScreen()),
           GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
@@ -159,6 +166,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // ── Shared ─────────────────────────────────────────────────────────────
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/profile/edit', builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: '/help', builder: (_, __) => const Scaffold(body: Center(child: Text('Help – Coming Soon')))),

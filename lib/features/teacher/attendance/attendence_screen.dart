@@ -179,7 +179,7 @@ class _ClassSelectCard extends ConsumerWidget {
     final countAsync = ref.watch(classStudentCountProvider(className));
 
     return GestureDetector(
-      onTap: () => context.push('/teacher/home/attendance/class', extra: className),
+      onTap: () => context.push('/teacher/home/attendance/class_attendence', extra: className),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

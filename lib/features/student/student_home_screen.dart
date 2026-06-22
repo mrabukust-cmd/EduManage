@@ -120,7 +120,7 @@ class _StudentHeader extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () => context.push('/student/notifications'),
+            onPressed: () => context.push('/notifications'),
             icon: const Icon(Icons.notifications_rounded, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 4),
