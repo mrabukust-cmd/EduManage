@@ -13,6 +13,9 @@ class RouteNames {
   // Student
   static const String studentHome = '/student/home';
 
+  // Parent
+  static const String parentHome  = '/parent/home';
+
   // Shared
   static const String profile     = '/profile';
   static const String editProfile = '/profile/edit';

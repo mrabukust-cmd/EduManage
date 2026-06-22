@@ -17,6 +17,10 @@ class FirebaseService {
       db.collection('students');
   CollectionReference<Map<String, dynamic>> get teachers =>
       db.collection('teachers');
+  CollectionReference<Map<String, dynamic>> get parents =>
+      db.collection('parents');
+  CollectionReference<Map<String, dynamic>> get parentChildren =>
+      db.collection('parent_children');
   CollectionReference<Map<String, dynamic>> get classes =>
       db.collection('classes');
   CollectionReference<Map<String, dynamic>> get notices =>
@@ -39,3 +43,36 @@ class FirebaseService {
     await batch.commit();
   }
 }
+
+//-----------------------------------
+// import 'dart:io';
+// import 'package:firebase_storage/firebase_storage.dart';
+
+// /// Handles profile photo uploads. Pairs with the /profile_photos/{uid}/
+// /// path convention enforced in storage.rules.
+// class StorageService {
+//   StorageService._();
+//   static final StorageService instance = StorageService._();
+
+//   final FirebaseStorage _storage = FirebaseStorage.instance;
+
+//   /// Uploads [file] as the current user's profile photo and returns the
+//   /// public download URL to save into UserModel.photoUrl.
+//   Future<String> uploadProfilePhoto({
+//     required String uid,
+//     required File file,
+//   }) async {
+//     final ref = _storage.ref('profile_photos/$uid/avatar.jpg');
+//     await ref.putFile(file);
+//     return ref.getDownloadURL();
+//   }
+
+//   Future<void> deleteProfilePhoto(String uid) async {
+//     final ref = _storage.ref('profile_photos/$uid/avatar.jpg');
+//     try {
+//       await ref.delete();
+//     } catch (_) {
+//       // No-op if there was never a photo to delete.
+//     }
+//   }
+// }

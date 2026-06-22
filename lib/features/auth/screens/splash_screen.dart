@@ -121,6 +121,9 @@ class _SplashScreenState extends State<SplashScreen>
         case 'teacher':
           context.go(RouteNames.teacherHome);
           break;
+        case 'parent':
+          context.go(RouteNames.parentHome);
+          break;
         default:
           context.go(RouteNames.studentHome);
       }

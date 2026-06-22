@@ -10,6 +10,7 @@ import 'package:school_management_system/features/admin/teachers/add/add_teacher
 import 'package:school_management_system/features/admin/add_student_screen.dart';
 import 'package:school_management_system/features/admin/reports_screen.dart';
 import 'package:school_management_system/features/admin/fees/fee_managemnet.dart';
+import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/shared/notification/notifications.dart';
 import 'package:school_management_system/features/shared/profile/edit_profile/edit_profile_screen.dart';
@@ -29,6 +30,9 @@ import 'package:school_management_system/features/teacher/attendence/attendence_
 import 'package:school_management_system/features/teacher/grades/grades_screen.dart';
 import 'package:school_management_system/features/teacher/teacher_home_screen.dart';
 import 'package:school_management_system/features/shared/timetable/timetable_screen.dart';
+import 'package:school_management_system/features/parents/parent_home_screen.dart';
+import 'package:school_management_system/features/parents/parent_attendence.dart';
+import 'package:school_management_system/features/parents/parent_result.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 // ── Router Provider ───────────────────────────────────────────────────────────
@@ -46,22 +50,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onSplash = loc == '/splash';
       final onBoarding = loc == '/onboarding';
       final onLogin = loc == '/login';
+      final onRegister = loc == '/register';
       final onPending = loc == '/pending';
 
       // Always allow splash and onboarding.
       if (onSplash || onBoarding) return null;
 
-      // Not logged in → go to login
-      if (!isLoggedIn && !onLogin) return '/login';
+      // Not logged in → go to login (but allow the register screen too)
+      if (!isLoggedIn && !onLogin && !onRegister) return '/login';
 
       // Logged in but pending → only allow /pending
       if (isLoggedIn && isPending && !onPending) return '/pending';
 
-      // Logged in, not pending, on login/pending page → redirect to dashboard
-      if (isLoggedIn && !isPending && (onLogin || onPending)) {
+      // Logged in, not pending, on login/register/pending page → redirect to dashboard
+      if (isLoggedIn && !isPending && (onLogin || onRegister || onPending)) {
         return switch (role) {
           'admin' => '/admin/home',
           'teacher' => '/teacher/home',
+          'parent' => '/parent/home',
           _ => '/student/home',
         };
       }
@@ -73,9 +79,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
 
       // ── Pending approval ───────────────────────────────────────────────────
-      GoRoute(path: '/pending', builder: (_, __) => const PendingApprovalScreen()),
+      GoRoute(path: '/pending', builder: (_, __) => const PendingApprovalsScreen()),
 
       // ── Admin ──────────────────────────────────────────────────────────────
       GoRoute(
@@ -92,6 +99,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
           GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
           GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
+          // GoRoute(path: 'approvals', builder: (_, __) => const PendingApprovalsScreen()),
         ],
       ),
 
@@ -124,15 +132,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
           GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
-          // NOTE: previously this route ('results') was registered TWICE in
-          // this list, which made go_router throw a duplicate-route
-          // assertion at startup. Fixed by keeping a single registration.
           GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
           GoRoute(path: 'attendance', builder: (_, __) => const StudentAttendanceScreen()),
           GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
           GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
+
+      // ── Parent ─────────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/parent/home',
+        builder: (_, __) => const ParentHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'timetable',
+            builder: (_, __) => const TimetableScreen(role: 'parent'),
+          ),
+          GoRoute(path: 'attendance', builder: (_, __) => const ParentAttendanceScreen()),
+          GoRoute(path: 'results', builder: (_, __) => const ParentResultsScreen()),
+          GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+        ],
+      ),
+      // Top-level alias used by ParentHomeScreen's notification bell
+      GoRoute(path: '/parent/notifications', builder: (_, __) => const NotificationsScreen()),
 
       // ── Shared ─────────────────────────────────────────────────────────────
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),

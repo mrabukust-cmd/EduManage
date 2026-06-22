@@ -30,16 +30,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _headerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
-    _formController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _formController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
 
-    _headerFade = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _headerController, curve: Curves.easeOut));
+    _headerFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOut),
+    );
     _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic));
+        .animate(
+          CurvedAnimation(
+            parent: _headerController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
-    _formFade = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _formController, curve: Curves.easeOut));
+    _formFade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _formController, curve: Curves.easeOut));
     _formSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic));
+        .animate(
+          CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
+        );
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted) return;
@@ -83,7 +101,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           content: Text(error),
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
@@ -96,6 +116,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         break;
       case 'teacher':
         context.go(RouteNames.teacherHome);
+        break;
+      case 'parent':
+        context.go(RouteNames.parentHome);
         break;
       default:
         context.go(RouteNames.studentHome);
@@ -137,9 +160,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.4),
+                              width: 1.5,
+                            ),
                           ),
-                          child: const Icon(Icons.school_rounded, color: Colors.white, size: 44),
+                          child: const Icon(
+                            Icons.school_rounded,
+                            color: Colors.white,
+                            size: 44,
+                          ),
                         ),
                         const SizedBox(height: 20),
                         const Text(
@@ -187,7 +217,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           keyboardType: TextInputType.emailAddress,
                           prefixIcon: Icons.email_outlined,
                           validator: (v) {
-                            if (v == null || v.isEmpty) return 'Email is required';
+                            if (v == null || v.isEmpty)
+                              return 'Email is required';
                             if (!v.contains('@')) return 'Enter a valid email';
                             return null;
                           },
@@ -201,7 +232,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           isPassword: true,
                           prefixIcon: Icons.lock_outline_rounded,
                           validator: (v) {
-                            if (v == null || v.isEmpty) return 'Password is required';
+                            if (v == null || v.isEmpty)
+                              return 'Password is required';
                             if (v.length < 6) return 'Minimum 6 characters';
                             return null;
                           },
@@ -216,33 +248,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ),
                         const SizedBox(height: 32),
 
-                        // Info box — no self-registration allowed
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Accounts are created by the Administrator. '
-                                  'Contact your school admin if you don\'t have access.',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                    height: 1.5,
-                                  ),
+                        // Sign-up prompt
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Don't have an account? ",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => context.push('/register'),
+                              child: const Text(
+                                'Create one',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

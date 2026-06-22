@@ -180,6 +180,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         default:
           return 'Failed to create account: ${e.message}';
       }
+    } on ArgumentError catch (e) {
+      state = state.copyWith(isLoading: false);
+      return e.message as String;
     } catch (e) {
       state = state.copyWith(isLoading: false);
       return 'An unexpected error occurred: $e';

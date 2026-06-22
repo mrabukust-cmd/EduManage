@@ -178,13 +178,14 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final actions = [
+  final actions = [
       _Action('Add Student', Icons.person_add_rounded, AppColors.adminColor),
       _Action('Add Teacher', Icons.person_add_alt_1_rounded, AppColors.teacherColor),
       _Action('New Notice', Icons.edit_document, AppColors.primary),
       _Action('Reports', Icons.bar_chart_rounded, AppColors.accent),
       _Action('Timetable', Icons.calendar_month_rounded, AppColors.warning),
       _Action('Settings', Icons.settings_rounded, AppColors.textSecondary),
+      _Action('Approvals', Icons.fact_check_rounded, AppColors.success),
     ];
 
     return GridView.builder(
@@ -201,6 +202,28 @@ class AdminDashboardScreen extends ConsumerWidget {
         label: actions[i].label,
         icon: actions[i].icon,
         color: actions[i].color,
+        onTap: () {
+          switch (actions[i].label) {
+            case 'Add Student':
+              context.push('/admin/home/students/add');
+              break;
+            case 'Add Teacher':
+              context.push('/admin/home/teachers/add');
+              break;
+            case 'Reports':
+              context.push('/admin/home/reports');
+              break;
+            case 'Timetable':
+              context.push('/admin/home/timetable');
+              break;
+            case 'Settings':
+              context.push('/admin/home/settings');
+              break;
+            case 'Approvals':
+              context.push('/admin/home/approvals');
+              break;
+          }
+        },
       ),
     );
   }
