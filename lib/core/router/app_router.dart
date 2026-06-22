@@ -54,16 +54,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onRegister = loc == '/register';
       final onPending = loc == '/pending';
 
-      // Always allow splash and onboarding.
       if (onSplash || onBoarding) return null;
-
-      // Not logged in → go to login (but allow the register screen too)
       if (!isLoggedIn && !onLogin && !onRegister) return '/login';
-
-      // Logged in but pending → only allow /pending
       if (isLoggedIn && isPending && !onPending) return '/pending';
 
-      // Logged in, not pending, on login/register/pending page → redirect to dashboard
       if (isLoggedIn && !isPending && (onLogin || onRegister || onPending)) {
         return switch (role) {
           'admin' => '/admin/home',
@@ -91,7 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
           GoRoute(path: 'students', builder: (_, __) => const StudentListScreen()),
-          GoRoute(path: 'timetable', builder: (_, __) => const TimetableScreen(role: 'admin')),
+          GoRoute(
+            path: 'timetable',
+            builder: (_, __) => const TimetableScreen(role: 'admin'),
+          ),
           GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
           GoRoute(path: 'teachers', builder: (_, __) => const TeacherListScreen()),
           GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
@@ -100,7 +97,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
           GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
           GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
-          // GoRoute(path: 'approvals', builder: (_, __) => const PendingApprovalsScreen()),
         ],
       ),
 
@@ -109,12 +105,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teacher/home',
         builder: (_, __) => const TeacherHomeScreen(),
         routes: [
-          GoRoute(path: 'attendance', builder: (_, __) => const AttendanceScreen()),
           GoRoute(
-            path: 'class_attendence/:className',
-            builder: (context, state) => ClassAttendanceScreen(
-              className: state.pathParameters['className']!,
-            ),
+            path: 'attendance',
+            builder: (_, __) => const AttendanceScreen(),
+            routes: [
+              // FIX: className passed via extra (not path param) to avoid
+              // URL-encoding issues with spaces like "Grade 9A"
+              GoRoute(
+                path: 'class',
+                builder: (context, state) {
+                  final className = state.extra as String? ?? '';
+                  return ClassAttendanceScreen(className: className);
+                },
+              ),
+            ],
           ),
           GoRoute(path: 'classes', builder: (_, __) => const TeacherClassesScreen()),
           GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
@@ -123,7 +127,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'timetable',
             builder: (_, __) => const TimetableScreen(role: 'teacher'),
           ),
-          GoRoute(path: 'messages', builder: (_, __) => const Scaffold(body: Center(child: Text('Messages – Coming Soon')))),
+          GoRoute(
+            path: 'messages',
+            builder: (_, __) => const Scaffold(
+              body: Center(child: Text('Messages – Coming Soon')),
+            ),
+          ),
           GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
@@ -138,7 +147,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const TimetableScreen(role: 'student'),
           ),
           GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
-          // GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
           GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
           GoRoute(path: 'attendance', builder: (_, __) => const StudentAttendanceScreen()),
           GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
@@ -161,20 +169,50 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
-      // Top-level alias used by ParentHomeScreen's notification bell
-      GoRoute(path: '/parent/notifications', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/parent/notifications',
+        builder: (_, __) => const NotificationsScreen(),
+      ),
 
       // ── Shared ─────────────────────────────────────────────────────────────
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/profile/edit', builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
-      GoRoute(path: '/help', builder: (_, __) => const Scaffold(body: Center(child: Text('Help – Coming Soon')))),
-      GoRoute(path: '/about', builder: (_, __) => const Scaffold(body: Center(child: Text('About – Coming Soon')))),
+      GoRoute(
+        path: '/help',
+        builder: (_, __) => const Scaffold(
+          body: Center(child: Text('Help – Coming Soon')),
+        ),
+      ),
+      GoRoute(
+        path: '/about',
+        builder: (_, __) => const Scaffold(
+          body: Center(child: Text('About – Coming Soon')),
+        ),
+      ),
     ],
 
     errorBuilder: (_, state) => Scaffold(
-      body: Center(child: Text('Page not found: ${state.error}')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Page not found',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.error?.toString() ?? 'Unknown error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 });

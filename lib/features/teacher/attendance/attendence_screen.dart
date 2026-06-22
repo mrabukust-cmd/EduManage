@@ -16,19 +16,29 @@ class StudentAttendance {
   final String name;
   final String rollNo;
   final String className;
-  const StudentAttendance({required this.id, required this.name, required this.rollNo, required this.className});
+  const StudentAttendance({
+    required this.id,
+    required this.name,
+    required this.rollNo,
+    required this.className,
+  });
 }
 
 // ── Providers ──────────────────────────────────────────────────────────────────
 
-/// Real classes assigned to the logged-in teacher (from their `teachers` doc's
-/// `classes` field, falling back to matching `classTeacher` in `classes`).
-final teacherAssignedClassesProvider = StreamProvider.autoDispose<List<String>>((ref) {
+/// Real classes assigned to the logged-in teacher
+final teacherAssignedClassesProvider =
+    StreamProvider.autoDispose<List<String>>((ref) {
   final uid = ref.watch(authProvider).user?.uid;
-  final teacherName = ref.watch(authProvider).user?.displayName?.trim() ?? '';
+  final teacherName =
+      ref.watch(authProvider).user?.displayName?.trim() ?? '';
   if (uid == null) return const Stream.empty();
 
-  return FirebaseFirestore.instance.collection('teachers').doc(uid).snapshots().asyncMap((snapshot) async {
+  return FirebaseFirestore.instance
+      .collection('teachers')
+      .doc(uid)
+      .snapshots()
+      .asyncMap((snapshot) async {
     final data = snapshot.data() as Map<String, dynamic>?;
     final classesFromTeacher = (data?['classes'] as List<dynamic>?)
             ?.map((e) => e.toString().trim())
@@ -41,9 +51,7 @@ final teacherAssignedClassesProvider = StreamProvider.autoDispose<List<String>>(
       return classesFromTeacher;
     }
 
-    if (teacherName.isEmpty) {
-      return <String>[];
-    }
+    if (teacherName.isEmpty) return <String>[];
 
     final classSnapshot = await FirebaseFirestore.instance
         .collection('classes')
@@ -62,7 +70,8 @@ final teacherAssignedClassesProvider = StreamProvider.autoDispose<List<String>>(
 });
 
 /// Live count of registered students for a given class name.
-final classStudentCountProvider = StreamProvider.family.autoDispose<int, String>((ref, className) {
+final classStudentCountProvider =
+    StreamProvider.family.autoDispose<int, String>((ref, className) {
   return FirebaseFirestore.instance
       .collection('students')
       .where('class', isEqualTo: className)
@@ -71,7 +80,9 @@ final classStudentCountProvider = StreamProvider.family.autoDispose<int, String>
 });
 
 /// Registered students for a given class name.
-final studentAttendanceStreamProvider = StreamProvider.family.autoDispose<List<StudentAttendance>, String>((ref, selectedClass) {
+final studentAttendanceStreamProvider =
+    StreamProvider.family.autoDispose<List<StudentAttendance>, String>(
+        (ref, selectedClass) {
   return FirebaseFirestore.instance
       .collection('students')
       .where('class', isEqualTo: selectedClass)
@@ -91,14 +102,14 @@ final studentAttendanceStreamProvider = StreamProvider.family.autoDispose<List<S
   });
 });
 
-/// Per-class attendance marking state (kept separate per className so
-/// switching classes never leaks one class's marks into another).
-final attendanceStatusesProvider =
-    StateNotifierProvider.autoDispose.family<AttendanceStatusNotifier, Map<String, AttendanceStatus>, String>(
+/// Per-class attendance marking state
+final attendanceStatusesProvider = StateNotifierProvider.autoDispose
+    .family<AttendanceStatusNotifier, Map<String, AttendanceStatus>, String>(
   (ref, className) => AttendanceStatusNotifier(),
 );
 
-class AttendanceStatusNotifier extends StateNotifier<Map<String, AttendanceStatus>> {
+class AttendanceStatusNotifier
+    extends StateNotifier<Map<String, AttendanceStatus>> {
   AttendanceStatusNotifier() : super({});
 
   void setStatus(String id, AttendanceStatus status) {
@@ -127,7 +138,10 @@ class AttendanceScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text('Mark Attendance', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+        title: Text(
+          'Mark Attendance',
+          style: AppTextStyles.headingMedium.copyWith(color: Colors.white),
+        ),
       ),
       body: classesAsync.when(
         data: (classes) {
@@ -138,12 +152,14 @@ class AttendanceScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.class_outlined, size: 64, color: AppColors.textHint),
+                    const Icon(Icons.class_outlined,
+                        size: 64, color: AppColors.textHint),
                     const SizedBox(height: 16),
                     Text(
                       'No classes assigned yet.\nAsk admin to assign you to a class.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -154,14 +170,16 @@ class AttendanceScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             itemCount: classes.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) => _ClassSelectCard(className: classes[i]),
+            itemBuilder: (_, i) =>
+                _ClassSelectCard(className: classes[i]),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(
           child: Text(
             'Unable to load your assigned classes',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.textSecondary),
           ),
         ),
       ),
@@ -179,7 +197,12 @@ class _ClassSelectCard extends ConsumerWidget {
     final countAsync = ref.watch(classStudentCountProvider(className));
 
     return GestureDetector(
-      onTap: () => context.push('/teacher/home/attendance/class_attendence', extra: className),
+      // FIX: use 'class' path with className as extra to avoid URL-encoding
+      // issues with spaces (e.g. "Grade 9A" → %20 etc.)
+      onTap: () => context.push(
+        '/teacher/home/attendance/class',
+        extra: className,
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -196,7 +219,8 @@ class _ClassSelectCard extends ConsumerWidget {
                 color: AppColors.teacherColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.class_rounded, color: AppColors.teacherColor),
+              child: const Icon(Icons.class_rounded,
+                  color: AppColors.teacherColor),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -206,14 +230,24 @@ class _ClassSelectCard extends ConsumerWidget {
                   Text(className, style: AppTextStyles.bodyMediumBold),
                   const SizedBox(height: 4),
                   countAsync.when(
-                    data: (count) => Text('$count registered students', style: AppTextStyles.labelSmall),
-                    loading: () => Text('Loading students...', style: AppTextStyles.labelSmall),
-                    error: (_, __) => Text('Unable to load count', style: AppTextStyles.labelSmall),
+                    data: (count) => Text(
+                      '$count registered students',
+                      style: AppTextStyles.labelSmall,
+                    ),
+                    loading: () => Text(
+                      'Loading students...',
+                      style: AppTextStyles.labelSmall,
+                    ),
+                    error: (_, __) => Text(
+                      'Unable to load count',
+                      style: AppTextStyles.labelSmall,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textSecondary),
           ],
         ),
       ),
