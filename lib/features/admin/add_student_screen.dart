@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/widgets/class_dropdown.dart';
 import 'package:school_management_system/core/widgets/custom_button.dart';
 import 'package:school_management_system/core/widgets/custom_text_field.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
@@ -20,7 +21,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _rollCtrl = TextEditingController();
-  final _classCtrl = TextEditingController();
+  String? _selectedClass; // FIX: was a free-text controller; now sourced
+  // from the `classes` collection via ClassDropdownField so the saved
+  // `class` value always exactly matches what attendance/grades/timetable
+  // screens query against. See core/widgets/class_dropdown_field.dart.
   final _sectionCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
   bool _isSaving = false;
@@ -31,7 +35,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _rollCtrl.dispose();
-    _classCtrl.dispose();
     _sectionCtrl.dispose();
     _contactCtrl.dispose();
     super.dispose();
@@ -39,6 +42,12 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedClass == null || _selectedClass!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a class')),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
 
     // FIXED: this no longer creates the account on the admin's own
@@ -51,7 +60,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           role: 'student',
           extraData: {
             'rollNo': _rollCtrl.text.trim(),
-            'class': _classCtrl.text.trim(),
+            'class': _selectedClass, // exact match to classes.name
             'section': _sectionCtrl.text.trim(),
             'contact': _contactCtrl.text.trim(),
           },
@@ -154,6 +163,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
               ),
               const SizedBox(height: 16),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: CustomTextField(
@@ -165,11 +175,9 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: CustomTextField(
-                      label: 'Class',
-                      controller: _classCtrl,
-                      prefixIcon: Icons.class_rounded,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    child: ClassDropdownField(
+                      value: _selectedClass,
+                      onChanged: (v) => setState(() => _selectedClass = v),
                     ),
                   ),
                 ],

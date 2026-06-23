@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
-import '../../../core/widgets/custom_button.dart';
-import '../../../core/widgets/custom_text_field.dart';
+import 'package:school_management_system/core/widgets/class_dropdown.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/custom_text_field.dart';
 
 class AdminStudentsScreen extends StatefulWidget {
   const AdminStudentsScreen({super.key});
@@ -278,18 +279,26 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _rollCtrl = TextEditingController();
-  final _classCtrl = TextEditingController();
+  String? _selectedClass; // FIX: replaced free-text _classCtrl with a
+  // dropdown sourced from the `classes` collection — see
+  // core/widgets/class_dropdown_field.dart for why.
   bool _loading = false;
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedClass == null || _selectedClass!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a class')),
+      );
+      return;
+    }
     setState(() => _loading = true);
     try {
       await FirebaseFirestore.instance.collection('students').add({
         'name': _nameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
         'rollNo': _rollCtrl.text.trim(),
-        'class': _classCtrl.text.trim(),
+        'class': _selectedClass,
         'section': '',
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -357,6 +366,7 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
             ),
             const SizedBox(height: 16),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: CustomTextField(
@@ -369,12 +379,9 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: CustomTextField(
-                    label: 'Class',
-                    controller: _classCtrl,
-                    prefixIcon: Icons.class_rounded,
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Required' : null,
+                  child: ClassDropdownField(
+                    value: _selectedClass,
+                    onChanged: (v) => setState(() => _selectedClass = v),
                   ),
                 ),
               ],

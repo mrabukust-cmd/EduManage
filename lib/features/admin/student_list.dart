@@ -5,20 +5,18 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/models/student_model.dart';
 import 'package:school_management_system/features/admin/student_list/manage_parents_sheet.dart';
 
-// ── Model ─────────────────────────────────────────────────────────────────────
-class StudentModel {
-  final String id, name, rollNo, grade, section, contact;
-  StudentModel({
-    required this.id,
-    required this.name,
-    required this.rollNo,
-    required this.grade,
-    required this.section,
-    required this.contact,
-  });
-}
+// FIXED: this file used to define its OWN local `StudentModel` class
+// (id, name, rollNo, grade, section, contact — no email/approved/
+// createdAt, no Firestore mapping) instead of importing the canonical
+// one from data/models/student_model.dart. The two classes had the
+// same name but different shapes, which meant "StudentModel" referred
+// to two different things depending which file you were in, and the
+// local copy would silently drift out of sync with the real model.
+// Now this screen uses the canonical StudentModel everywhere; its
+// `className` field is what this UI previously called `grade`.
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 final studentSearchProvider = StateProvider<String>((ref) => '');
@@ -46,20 +44,10 @@ class StudentListScreen extends ConsumerWidget {
     final filtered = studentsSnap.when(
       data: (snapshot) {
         return snapshot.docs
-            .map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return StudentModel(
-                id: doc.id,
-                name: data['name'] as String? ?? 'Unknown',
-                rollNo: data['rollNo'] as String? ?? '-',
-                grade: data['class'] as String? ?? 'Unknown',
-                section: data['section'] as String? ?? '-',
-                contact: data['contact'] as String? ?? '-',
-              );
-            })
+            .map((doc) => StudentModel.fromDoc(doc))
             .where((s) {
               final matchGrade =
-                  selectedGrade == 'All' || s.grade == selectedGrade;
+                  selectedGrade == 'All' || s.className == selectedGrade;
               final matchQuery =
                   s.name.toLowerCase().contains(query.toLowerCase()) ||
                   s.rollNo.contains(query);
@@ -67,8 +55,8 @@ class StudentListScreen extends ConsumerWidget {
             })
             .toList();
       },
-      loading: () => [],
-      error: (_, __) => [],
+      loading: () => <StudentModel>[],
+      error: (_, __) => <StudentModel>[],
     );
 
     return Scaffold(
@@ -228,7 +216,7 @@ class _StudentCard extends StatelessWidget {
             radius: 22,
             backgroundColor: AppColors.studentColor.withOpacity(0.12),
             child: Text(
-              student.name.substring(0, 1),
+              student.name.isNotEmpty ? student.name.substring(0, 1) : '?',
               style: AppTextStyles.bodyMediumBold.copyWith(
                 color: AppColors.studentColor,
                 fontSize: 18,
@@ -250,7 +238,7 @@ class _StudentCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     _Badge(
-                      label: '${student.grade} – ${student.section}',
+                      label: '${student.className} – ${student.section}',
                       color: AppColors.studentColor,
                     ),
                   ],
@@ -268,8 +256,9 @@ class _StudentCard extends StatelessWidget {
             ),
             onSelected: (v) {
               if (v == 'view') context.push('/admin/students/${student.id}');
-              if (v == 'edit')
+              if (v == 'edit') {
                 context.push('/admin/students/${student.id}/edit');
+              }
               if (v == 'parents') {
                 ManageParentsSheet.show(
                   context,

@@ -186,6 +186,7 @@ class AdminDashboardScreen extends ConsumerWidget {
       _Action('Timetable', Icons.calendar_month_rounded, AppColors.warning),
       _Action('Settings', Icons.settings_rounded, AppColors.textSecondary),
       _Action('Approvals', Icons.fact_check_rounded, AppColors.success),
+        _Action('Fix Class Names', Icons.merge_type_rounded, AppColors.danger), 
     ];
 
     return GridView.builder(
@@ -222,6 +223,9 @@ class AdminDashboardScreen extends ConsumerWidget {
             case 'Approvals':
               context.push('/admin/home/approvals');
               break;
+            case 'Fix Class Names':                              // NEW
+              context.push('/admin/home/fix-class-names');       // NEW
+              break;                                             // NEW
           }
         },
       ),

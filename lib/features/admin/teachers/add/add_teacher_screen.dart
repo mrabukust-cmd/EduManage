@@ -6,6 +6,7 @@ import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../../../core/widgets/custom_button.dart';
 import '../../../../../core/widgets/custom_text_field.dart';
+import '../../../../../core/widgets/class_multi_select_field.dart';
 
 class AddTeacherScreen extends ConsumerStatefulWidget {
   const AddTeacherScreen({super.key});
@@ -22,7 +23,12 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   final _phoneCtrl = TextEditingController();
   final _subjectCtrl = TextEditingController();
   final _qualificationCtrl = TextEditingController();
-  final _classesCtrl = TextEditingController();
+  List<String> _selectedClasses = []; // FIX: was a comma-separated free-
+  // text controller (_classesCtrl). Free text let admins type "Grade 9A"
+  // for one teacher and "9A" for another, which silently broke
+  // TeacherRepository.watchAssignedClassNames (exact-match against the
+  // `classes` collection) the same way it broke student attendance — see
+  // core/widgets/class_multi_select_field.dart for the full rationale.
   bool _loading = false;
 
   @override
@@ -33,20 +39,12 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
     _phoneCtrl.dispose();
     _subjectCtrl.dispose();
     _qualificationCtrl.dispose();
-    _classesCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-
-    final classesList = _classesCtrl.text
-        .trim()
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
 
     // FIXED: routed through AuthNotifier.adminCreateUser, which uses a
     // secondary FirebaseApp instance so the admin's session is preserved.
@@ -59,7 +57,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
             'phone': _phoneCtrl.text.trim(),
             'subject': _subjectCtrl.text.trim(),
             'qualification': _qualificationCtrl.text.trim(),
-            'classes': classesList,
+            'classes': _selectedClasses, // exact matches to classes.name
           },
         );
 
@@ -190,11 +188,9 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              CustomTextField(
-                label: 'Assigned Classes (comma separated)',
-                hint: 'e.g. Grade 8, Grade 9A, Grade 10B',
-                controller: _classesCtrl,
-                prefixIcon: Icons.class_outlined,
+              ClassMultiSelectField(
+                selected: _selectedClasses,
+                onChanged: (v) => setState(() => _selectedClasses = v),
               ),
               const SizedBox(height: 28),
               CustomButton(

@@ -10,6 +10,7 @@ import 'package:school_management_system/features/admin/teachers/add/add_teacher
 import 'package:school_management_system/features/admin/add_student_screen.dart';
 import 'package:school_management_system/features/admin/reports_screen.dart';
 import 'package:school_management_system/features/admin/fees/fee_managemnet.dart';
+import 'package:school_management_system/features/admin/tools/class_name_merge_screen.dart';
 import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/shared/notification/notifications.dart';
@@ -85,10 +86,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
           GoRoute(path: 'students', builder: (_, __) => const StudentListScreen()),
-          GoRoute(
-            path: 'timetable',
-            builder: (_, __) => const TimetableScreen(role: 'admin'),
-          ),
+          GoRoute(path: 'timetable',builder: (_, __) => const TimetableScreen(role: 'admin')),
           GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
           GoRoute(path: 'teachers', builder: (_, __) => const TeacherListScreen()),
           GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
@@ -96,6 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'fees', builder: (_, __) => const FeeManagementScreen()),
           GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
           GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
+          GoRoute(path: 'fix-class-names', builder: (_, __) => const ClassNameMergeScreen()),
           GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
         ],
       ),
