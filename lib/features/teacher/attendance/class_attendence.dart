@@ -7,9 +7,10 @@ import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'attendence_screen.dart';
 
-/// Shows the registered students of ONE class and lets the teacher mark
-/// + submit attendance for that class. Reached by tapping a class card on
-/// [AttendanceScreen].
+/// Shows registered students of ONE class and lets the teacher mark
+/// and submit attendance. Written records are immediately visible in
+/// StudentAttendanceScreen and ParentAttendanceScreen because they both
+/// query: attendance WHERE studentId == uid AND date == today.
 class ClassAttendanceScreen extends ConsumerStatefulWidget {
   final String className;
   const ClassAttendanceScreen({super.key, required this.className});
@@ -25,7 +26,9 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
 
   String get _todayKey {
     final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _submitAttendance(
@@ -35,26 +38,33 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
     setState(() => _submitting = true);
     try {
       final teacherId = FirebaseAuth.instance.currentUser?.uid ?? '';
-      final classKey = widget.className.replaceAll(RegExp(r'[\/\s]+'), '_');
-      final docId = '${classKey}_$_todayKey';
+      final db = FirebaseFirestore.instance;
 
-      final records = <String, dynamic>{};
+      // Use a batch write for atomicity.
+      // Each document: attendance/{studentId}_{date}
+      // This allows upsert (teacher can re-submit to correct mistakes).
+      // Student and parent screens query: studentId == uid, date == dateStr
+      final batch = db.batch();
+
       for (final student in students) {
-        final status = statuses[student.id];
-        records[student.id] = {
-          'name': student.name,
-          'rollNo': student.rollNo,
-          'status': status?.name ?? 'unmarked',
-        };
+        final status = statuses[student.id] ?? AttendanceStatus.absent;
+        // Deterministic doc ID = easy upsert + no duplicate records per day
+        final docRef = db
+            .collection('attendance')
+            .doc('${student.id}_$_todayKey');
+        batch.set(docRef, {
+          'studentId': student.id,
+          'studentName': student.name,
+          'className': widget.className,
+          'date': _todayKey,
+          'status': status.name, // 'present' | 'absent' | 'late'
+          'markedBy': teacherId,
+          'timestamp': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
 
-      await FirebaseFirestore.instance.collection('attendance').doc(docId).set({
-        'className': widget.className,
-        'date': _todayKey,
-        'markedBy': teacherId,
-        'records': records,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await batch.commit();
 
       if (!mounted) return;
       setState(() {
@@ -62,9 +72,13 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
         _submitted = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Attendance submitted successfully!'),
+        SnackBar(
+          content: Text(
+              'Attendance for ${widget.className} submitted successfully!'),
           backgroundColor: AppColors.teacherColor,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } catch (e) {
@@ -81,15 +95,12 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final studentsAsync = ref.watch(
-      studentAttendanceStreamProvider(widget.className),
-    );
-    final attendanceStatuses = ref.watch(
-      attendanceStatusesProvider(widget.className),
-    );
-    final notifier = ref.read(
-      attendanceStatusesProvider(widget.className).notifier,
-    );
+    final studentsAsync =
+        ref.watch(studentAttendanceStreamProvider(widget.className));
+    final attendanceStatuses =
+        ref.watch(attendanceStatusesProvider(widget.className));
+    final notifier =
+        ref.read(attendanceStatusesProvider(widget.className).notifier);
 
     final totalCount = studentsAsync.when(
       data: (s) => s.length,
@@ -106,6 +117,13 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
     final absentCount = studentsAsync.when(
       data: (s) => s
           .where((st) => attendanceStatuses[st.id] == AttendanceStatus.absent)
+          .length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final lateCount = studentsAsync.when(
+      data: (s) => s
+          .where((st) => attendanceStatuses[st.id] == AttendanceStatus.late)
           .length,
       loading: () => 0,
       error: (_, __) => 0,
@@ -127,36 +145,31 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
       ),
       body: Column(
         children: [
-          // ── Summary Bar ────────────────────────────────────────
+          // ── Summary Bar ──────────────────────────────────────
           Container(
             color: AppColors.teacherColor,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Row(
               children: [
                 _SummaryChip(
-                  label: 'Present',
-                  count: presentCount,
-                  color: Colors.greenAccent,
-                ),
-                const SizedBox(width: 10),
+                    label: 'Present', count: presentCount, color: Colors.greenAccent),
+                const SizedBox(width: 8),
                 _SummaryChip(
-                  label: 'Absent',
-                  count: absentCount,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(width: 10),
+                    label: 'Absent', count: absentCount, color: Colors.redAccent),
+                const SizedBox(width: 8),
                 _SummaryChip(
-                  label: 'Total',
-                  count: totalCount,
-                  color: Colors.white,
-                ),
+                    label: 'Late', count: lateCount, color: Colors.orangeAccent),
+                const SizedBox(width: 8),
+                _SummaryChip(
+                    label: 'Total', count: totalCount, color: Colors.white),
               ],
             ),
           ),
 
-          // ── Mark All Row ──────────────────────────────────────
+          // ── Mark All Row ─────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: Row(
               children: [
                 Text('Mark All:', style: AppTextStyles.bodyMediumBold),
@@ -166,9 +179,8 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
                   color: Colors.green,
                   onTap: () => studentsAsync.whenData((students) {
                     notifier.markAll(
-                      students.map((s) => s.id).toList(),
-                      AttendanceStatus.present,
-                    );
+                        students.map((s) => s.id).toList(),
+                        AttendanceStatus.present);
                   }),
                 ),
                 const SizedBox(width: 8),
@@ -177,27 +189,37 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
                   color: Colors.red,
                   onTap: () => studentsAsync.whenData((students) {
                     notifier.markAll(
-                      students.map((s) => s.id).toList(),
-                      AttendanceStatus.absent,
-                    );
+                        students.map((s) => s.id).toList(),
+                        AttendanceStatus.absent);
                   }),
                 ),
               ],
             ),
           ),
 
-          // ── Student List ──────────────────────────────────────
+          // ── Student List ─────────────────────────────────────
           Expanded(
             child: studentsAsync.when(
               data: (students) {
                 if (students.isEmpty) {
                   return Center(
-                    child: Text(
-                      'No registered students found for ${widget.className}.',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.people_outline_rounded,
+                              size: 64, color: AppColors.textHint),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No students enrolled in ${widget.className}.\n'
+                            'Add students with this class assigned to see them here.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   );
                 }
@@ -219,66 +241,55 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (_, __) => Center(
-                child: Text(
-                  'Unable to load students',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                child: Text('Unable to load students',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textSecondary)),
               ),
             ),
           ),
 
-          // ── Submit Button ─────────────────────────────────────
+          // ── Submit Button ────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(20),
             child: SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: !_submitted && totalCount > 0
-                    ? () async {
-                        final statuses = ref.read(
-                          attendanceStatusesProvider(widget.className),
-                        );
-                        final students = studentsAsync.asData?.value ?? [];
-                        final today = DateTime.now();
-                        final dateStr =
-                            '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-                        final batch = FirebaseFirestore.instance.batch();
-
-                        for (final student in students) {
-                          final status =
-                              statuses[student.id] ?? AttendanceStatus.absent;
-                          final ref = FirebaseFirestore.instance
-                              .collection('attendance')
-                              .doc();
-                          batch.set(ref, {
-                            'studentId': student.id,
-                            'studentName': student.name,
-                            'className': widget.className,
-                            'date': dateStr,
-                            'timestamp': FieldValue.serverTimestamp(),
-                            'status': status
-                                .name, // 'present' | 'absent' | 'late' | 'leave'
-                          });
-                        }
-
-                        await batch.commit();
-                        setState(() => _submitted = true);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Attendance submitted successfully!',
-                              ),
-                              backgroundColor: AppColors.teacherColor,
-                            ),
-                          );
-                        }
-                      }
-                    : null,
-                child: const Text('Submit'),
+              child: ElevatedButton.icon(
+                onPressed: _submitting || totalCount == 0 || _submitted
+                    ? null
+                    : () async {
+                        final statuses = ref
+                            .read(attendanceStatusesProvider(widget.className));
+                        final students =
+                            studentsAsync.asData?.value ?? [];
+                        await _submitAttendance(students, statuses);
+                      },
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Icon(_submitted
+                        ? Icons.check_circle_rounded
+                        : Icons.save_rounded),
+                label: Text(_submitting
+                    ? 'Submitting...'
+                    : _submitted
+                        ? 'Submitted ✓'
+                        : 'Submit Attendance'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _submitted
+                      ? AppColors.success
+                      : AppColors.teacherColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ),
@@ -293,11 +304,8 @@ class _SummaryChip extends StatelessWidget {
   final String label;
   final int count;
   final Color color;
-  const _SummaryChip({
-    required this.label,
-    required this.count,
-    required this.color,
-  });
+  const _SummaryChip(
+      {required this.label, required this.count, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -310,14 +318,20 @@ class _SummaryChip extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              '$count',
-              style: AppTextStyles.statValue.copyWith(
-                color: color,
-                fontSize: 18,
-              ),
-            ),
-            Text(label, style: AppTextStyles.labelTiny.copyWith(color: color)),
+            Text('$count',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                )),
+            Text(label,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                )),
           ],
         ),
       ),
@@ -330,18 +344,16 @@ class _MarkAllBtn extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _MarkAllBtn({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
+  const _MarkAllBtn(
+      {required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
@@ -364,11 +376,10 @@ class _StudentAttRow extends StatelessWidget {
   final StudentAttendance student;
   final AttendanceStatus? currentStatus;
   final ValueChanged<AttendanceStatus> onStatus;
-  const _StudentAttRow({
-    required this.student,
-    required this.currentStatus,
-    required this.onStatus,
-  });
+  const _StudentAttRow(
+      {required this.student,
+      required this.currentStatus,
+      required this.onStatus});
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +463,8 @@ class _StatusBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? color : color.withOpacity(0.08),
           shape: BoxShape.circle,
-          border: Border.all(color: color.withOpacity(isSelected ? 1 : 0.3)),
+          border: Border.all(
+              color: color.withOpacity(isSelected ? 1 : 0.3)),
         ),
         alignment: Alignment.center,
         child: Text(
