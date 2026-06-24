@@ -82,10 +82,6 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
-    // Initialize NotificationService exactly once per signed-in user.
-    // Using ref.listen (not watch) here because this is a side effect,
-    // not something that should drive a rebuild on its own — the actual
-    // UI never depends on whether notifications are initialized.
     ref.listen<AuthState>(authProvider, (previous, next) {
       final uid = next.user?.uid;
 

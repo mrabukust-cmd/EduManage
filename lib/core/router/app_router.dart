@@ -98,8 +98,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'fix-class-names', builder: (_, __) => const ClassNameMergeScreen()),
           // ── NEW: seed all classes Nursery → Grade 12 with A/B/C sections ──
           GoRoute(path: 'seed-classes', builder: (_, __) => const ClassSeederScreen()),
+          GoRoute(path: 'history',      builder: (_, __) => const AdminActivityHistoryScreen()), 
           GoRoute(path: 'timetable',    builder: (_, __) => const TimetableScreen(role: 'admin')),
           GoRoute(path: 'settings',     builder: (_, __) => const ProfileScreen()),
+          // GoRoute(path: 'history',    builder: (_, __) => const AdminActivityHistoryScreen()),
         ],
       ),
 
