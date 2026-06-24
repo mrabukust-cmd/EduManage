@@ -121,10 +121,7 @@ class AdminHomeScreen extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 14)),
             SliverList(
               delegate: SliverChildListDelegate([
-                _ActivityItem(icon: Icons.person_add_rounded, color: AppColors.studentColor, title: 'New student enrolled', subtitle: 'Ali Khan — Grade 9A', time: '2 min ago'),
-                _ActivityItem(icon: Icons.payment_rounded, color: AppColors.success, title: 'Fee payment received', subtitle: 'Sara Noor — Rs 5,000', time: '15 min ago'),
-                _ActivityItem(icon: Icons.announcement_rounded, color: AppColors.accent, title: 'Notice published', subtitle: 'Annual Sports Day – June 20', time: '1 hr ago'),
-                _ActivityItem(icon: Icons.cancel_rounded, color: AppColors.danger, title: 'Absence reported', subtitle: 'Grade 8B — 3 students', time: '2 hr ago'),
+              _buildPendingApprovals(),
                 const SizedBox(height: 32),
               ]),
             ),
@@ -307,6 +304,61 @@ class _ActivityItem extends StatelessWidget {
   }
 }
 
+// ── Notice Card ──────────────────────────────────────────────────────────────
+class _NoticeCard extends StatelessWidget {
+  final String title, body, type;
+  const _NoticeCard({required this.title, required this.body, required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTextStyles.bodyMediumBold),
+          const SizedBox(height: 6),
+          Text(body, style: AppTextStyles.labelSmall),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Empty Card ───────────────────────────────────────────────────────────────
+class _EmptyCard extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const _EmptyCard({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.textSecondary, size: 28),
+          const SizedBox(height: 8),
+          Text(message, style: AppTextStyles.labelSmall),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Bottom Nav ───────────────────────────────────────────────────────────────
 class _AdminBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -341,4 +393,87 @@ class _AdminBottomNav extends StatelessWidget {
       ],
     );
   }
+}
+
+Widget _buildPendingApprovals() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('users')
+        .where('approved', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(5)
+        .snapshots(),
+    builder: (context, snap) {
+      final docs = snap.data?.docs ?? [];
+      if (docs.isEmpty) {
+        return _EmptyCard(
+          icon: Icons.check_circle_outline_rounded,
+          message: 'No pending approvals.',
+        );
+      }
+      return Column(
+        children: docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name = data['name'] as String? ?? 'Unknown';
+          final role = data['role'] as String? ?? 'student';
+          final Color color = role == 'teacher'
+              ? AppColors.teacherColor
+              : role == 'parent'
+                  ? AppColors.accent
+                  : AppColors.studentColor;
+          return _NoticeCard(
+            title: '$name is waiting for approval',
+            body: '${role[0].toUpperCase()}${role.substring(1)} registration pending',
+            type: role,
+          );
+        }).toList(),
+      );
+    },
+  );
+}
+
+Widget _buildPendingStream() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('users')
+        .where('approved', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(4)
+        .snapshots(),
+    builder: (context, snap) {
+      final docs = snap.data?.docs ?? [];
+      if (docs.isEmpty) {
+        return Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: AppColors.cardShadow,
+          ),
+          child: const Text('No pending approvals — all caught up!',
+              style: TextStyle(fontFamily: 'Poppins', color: AppColors.textSecondary)),
+        );
+      }
+      return Column(
+        children: docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name = data['name'] as String? ?? 'Unknown';
+          final role = data['role'] as String? ?? 'student';
+          final Color color = role == 'teacher'
+              ? AppColors.teacherColor
+              : role == 'parent'
+                  ? AppColors.accent
+                  : AppColors.studentColor;
+          return _ActivityItem(
+            icon: Icons.person_add_rounded,
+            color: color,
+            title: '$name awaiting approval',
+            subtitle: '${role[0].toUpperCase()}${role.substring(1)} · Tap Approvals to review',
+            time: '',
+          );
+        }).toList(),
+      );
+    },
+  );
 }

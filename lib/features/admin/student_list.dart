@@ -8,17 +8,7 @@ import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/data/models/student_model.dart';
 import 'package:school_management_system/features/admin/student_list/manage_parents_sheet.dart';
 
-// FIXED: this file used to define its OWN local `StudentModel` class
-// (id, name, rollNo, grade, section, contact — no email/approved/
-// createdAt, no Firestore mapping) instead of importing the canonical
-// one from data/models/student_model.dart. The two classes had the
-// same name but different shapes, which meant "StudentModel" referred
-// to two different things depending which file you were in, and the
-// local copy would silently drift out of sync with the real model.
-// Now this screen uses the canonical StudentModel everywhere; its
-// `className` field is what this UI previously called `grade`.
-
-// ── Provider ──────────────────────────────────────────────────────────────────
+// ── Providers ──────────────────────────────────────────────────────────────────
 final studentSearchProvider = StateProvider<String>((ref) => '');
 final selectedGradeProvider = StateProvider<String>((ref) => 'All');
 
@@ -29,17 +19,40 @@ final studentsStreamProvider = StreamProvider<QuerySnapshot>((ref) {
       .snapshots();
 });
 
+/// Streams every distinct class name from the `classes` collection,
+/// sorted exactly as they were entered (alphabetical by `name`).
+/// This replaces the old hardcoded ['All', 'Grade 8', 'Grade 9', 'Grade 10'].
+final classNamesProvider = StreamProvider<List<String>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('classes')
+      .orderBy('name')
+      .snapshots()
+      .map((snap) {
+    final names = snap.docs
+        .map((d) => (d.data())['name'] as String? ?? '')
+        .where((n) => n.trim().isNotEmpty)
+        .toList();
+    return names;
+  });
+});
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 class StudentListScreen extends ConsumerWidget {
   const StudentListScreen({super.key});
-
-  static const _grades = ['All', 'Grade 8', 'Grade 9', 'Grade 10'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final query = ref.watch(studentSearchProvider);
     final selectedGrade = ref.watch(selectedGradeProvider);
     final studentsSnap = ref.watch(studentsStreamProvider);
+    final classNamesAsync = ref.watch(classNamesProvider);
+
+    // Build the filter list: always starts with "All", then real class names
+    final filterChips = classNamesAsync.when(
+      data: (names) => ['All', ...names],
+      loading: () => ['All'],
+      error: (_, __) => ['All'],
+    );
 
     final filtered = studentsSnap.when(
       data: (snapshot) {
@@ -111,41 +124,59 @@ class StudentListScreen extends ConsumerWidget {
                   style: AppTextStyles.bodyMedium.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 12),
-                // Grade Filter
+
+                // ── Dynamic class filter chips ──────────────
                 SizedBox(
                   height: 36,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: _grades.map((g) {
-                      final isSelected = selectedGrade == g;
-                      return GestureDetector(
-                        onTap: () =>
-                            ref.read(selectedGradeProvider.notifier).state = g,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.white : Colors.white24,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            g,
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : Colors.white,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
+                  child: classNamesAsync.when(
+                    loading: () => const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white54,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (_) => ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: filterChips.length,
+                      itemBuilder: (context, i) {
+                        final g = filterChips[i];
+                        final isSelected = selectedGrade == g;
+                        return GestureDetector(
+                          onTap: () => ref
+                              .read(selectedGradeProvider.notifier)
+                              .state = g,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected ? Colors.white : Colors.white24,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              g,
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -158,9 +189,34 @@ class StudentListScreen extends ConsumerWidget {
             child: Row(
               children: [
                 Text(
-                  '${filtered.length} students',
+                  '${filtered.length} student${filtered.length == 1 ? '' : 's'}',
                   style: AppTextStyles.labelMedium,
                 ),
+                if (selectedGrade != 'All') ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      selectedGrade,
+                      style: AppTextStyles.labelTiny.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => ref
+                        .read(selectedGradeProvider.notifier)
+                        .state = 'All',
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: AppColors.textSecondary),
+                  ),
+                ],
               ],
             ),
           ),
@@ -169,19 +225,19 @@ class StudentListScreen extends ConsumerWidget {
           Expanded(
             child: studentsSnap.when(
               data: (_) => filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No students found',
-                        style: AppTextStyles.bodyMedium,
-                      ),
+                  ? _EmptyState(
+                      selectedGrade: selectedGrade,
+                      query: query,
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _StudentCard(student: filtered[i]),
+                      itemBuilder: (_, i) =>
+                          _StudentCard(student: filtered[i]),
                     ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(
                 child: Text(
                   'Failed to load students',
@@ -191,6 +247,44 @@ class StudentListScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+class _EmptyState extends StatelessWidget {
+  final String selectedGrade;
+  final String query;
+  const _EmptyState({required this.selectedGrade, required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    final isFiltered = selectedGrade != 'All' || query.isNotEmpty;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isFiltered
+                  ? Icons.search_off_rounded
+                  : Icons.people_outline_rounded,
+              size: 64,
+              color: AppColors.textHint,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isFiltered
+                  ? 'No students match your search.'
+                  : 'No students yet.\nTap + to add one.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -229,17 +323,29 @@ class _StudentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(student.name, style: AppTextStyles.bodyMediumBold),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
+                Text(
+                  student.email,
+                  style: AppTextStyles.labelSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     _Badge(
                       label: 'Roll ${student.rollNo}',
                       color: AppColors.primary,
                     ),
-                    const SizedBox(width: 8),
-                    _Badge(
-                      label: '${student.className} – ${student.section}',
-                      color: AppColors.studentColor,
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: _Badge(
+                        label: student.className.isEmpty
+                            ? 'No class'
+                            : student.section.isEmpty
+                                ? student.className
+                                : '${student.className} – ${student.section}',
+                        color: AppColors.studentColor,
+                      ),
                     ),
                   ],
                 ),
@@ -255,10 +361,6 @@ class _StudentCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             onSelected: (v) {
-              if (v == 'view') context.push('/admin/students/${student.id}');
-              if (v == 'edit') {
-                context.push('/admin/students/${student.id}/edit');
-              }
               if (v == 'parents') {
                 ManageParentsSheet.show(
                   context,
@@ -266,19 +368,48 @@ class _StudentCard extends StatelessWidget {
                   studentName: student.name,
                 );
               }
+              if (v == 'delete') {
+                _confirmDelete(context, student);
+              }
             },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'view', child: Text('View Profile')),
-              const PopupMenuItem(value: 'edit', child: Text('Edit')),
-              const PopupMenuItem(
-                value: 'parents',
-                child: Text('Manage Parents'),
-              ),
-              const PopupMenuItem(
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'parents', child: Text('Manage Parents')),
+              PopupMenuItem(
                 value: 'delete',
-                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                child: Text('Delete',
+                    style: TextStyle(color: Colors.redAccent)),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, StudentModel student) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete student?'),
+        content: Text(
+            'This will permanently remove ${student.name} from the system.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              FirebaseFirestore.instance
+                  .collection('students')
+                  .doc(student.id)
+                  .delete();
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -305,6 +436,7 @@ class _Badge extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.w600,
         ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

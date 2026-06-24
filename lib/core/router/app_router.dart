@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/features/admin/admin_home_screen.dart';
+import 'package:school_management_system/features/admin/class_seeder_screen.dart';
 import 'package:school_management_system/features/admin/classes/classes_screen.dart';
 import 'package:school_management_system/features/admin/notices/notices_board_screen.dart';
 import 'package:school_management_system/features/admin/student_list.dart';
@@ -85,17 +86,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/home',
         builder: (_, __) => const AdminHomeScreen(),
         routes: [
-          GoRoute(path: 'students', builder: (_, __) => const StudentListScreen()),
-          GoRoute(path: 'timetable',builder: (_, __) => const TimetableScreen(role: 'admin')),
+          GoRoute(path: 'students',     builder: (_, __) => const StudentListScreen()),
           GoRoute(path: 'students/add', builder: (_, __) => const AddStudentScreen()),
-          GoRoute(path: 'teachers', builder: (_, __) => const TeacherListScreen()),
+          GoRoute(path: 'teachers',     builder: (_, __) => const TeacherListScreen()),
           GoRoute(path: 'teachers/add', builder: (_, __) => const AddTeacherScreen()),
-          GoRoute(path: 'classes', builder: (_, __) => const ClassesScreen()),
-          GoRoute(path: 'fees', builder: (_, __) => const FeeManagementScreen()),
-          GoRoute(path: 'notices', builder: (_, __) => const NoticeBoardScreen()),
-          GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
+          GoRoute(path: 'classes',      builder: (_, __) => const ClassesScreen()),
+          GoRoute(path: 'fees',         builder: (_, __) => const FeeManagementScreen()),
+          GoRoute(path: 'notices',      builder: (_, __) => const NoticeBoardScreen()),
+          GoRoute(path: 'reports',      builder: (_, __) => const ReportsScreen()),
+          GoRoute(path: 'approvals',    builder: (_, __) => const PendingApprovalsScreen()),
           GoRoute(path: 'fix-class-names', builder: (_, __) => const ClassNameMergeScreen()),
-          GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
+          // ── NEW: seed all classes Nursery → Grade 12 with A/B/C sections ──
+          GoRoute(path: 'seed-classes', builder: (_, __) => const ClassSeederScreen()),
+          GoRoute(path: 'timetable',    builder: (_, __) => const TimetableScreen(role: 'admin')),
+          GoRoute(path: 'settings',     builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -108,8 +112,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'attendance',
             builder: (_, __) => const AttendanceScreen(),
             routes: [
-              // FIX: className passed via extra (not path param) to avoid
-              // URL-encoding issues with spaces like "Grade 9A"
               GoRoute(
                 path: 'class',
                 builder: (context, state) {
@@ -119,9 +121,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(path: 'classes', builder: (_, __) => const TeacherClassesScreen()),
+          GoRoute(path: 'classes',     builder: (_, __) => const TeacherClassesScreen()),
           GoRoute(path: 'assignments', builder: (_, __) => const AssignmentsScreen()),
-          GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
+          GoRoute(path: 'grades',      builder: (_, __) => const GradesScreen()),
           GoRoute(
             path: 'timetable',
             builder: (_, __) => const TimetableScreen(role: 'teacher'),
@@ -146,10 +148,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const TimetableScreen(role: 'student'),
           ),
           GoRoute(path: 'assignments', builder: (_, __) => const StudentAssignmentsScreen()),
-          GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
-          GoRoute(path: 'attendance', builder: (_, __) => const StudentAttendanceScreen()),
-          GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
-          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'results',     builder: (_, __) => const StudentResultsScreen()),
+          GoRoute(path: 'attendance',  builder: (_, __) => const StudentAttendanceScreen()),
+          GoRoute(path: 'notices',     builder: (_, __) => const StudentNoticesScreen()),
+          GoRoute(path: 'profile',     builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -163,9 +165,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const TimetableScreen(role: 'parent'),
           ),
           GoRoute(path: 'attendance', builder: (_, __) => const ParentAttendanceScreen()),
-          GoRoute(path: 'results', builder: (_, __) => const ParentResultsScreen()),
-          GoRoute(path: 'notices', builder: (_, __) => const StudentNoticesScreen()),
-          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: 'results',    builder: (_, __) => const ParentResultsScreen()),
+          GoRoute(path: 'notices',    builder: (_, __) => const StudentNoticesScreen()),
+          GoRoute(path: 'profile',    builder: (_, __) => const ProfileScreen()),
         ],
       ),
       GoRoute(
@@ -174,9 +176,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Shared ─────────────────────────────────────────────────────────────
-      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
-      GoRoute(path: '/profile/edit', builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: '/profile',           builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: '/notifications',     builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/profile/edit',      builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: '/settings/password', builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(
         path: '/help',
@@ -199,9 +201,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Page not found',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(

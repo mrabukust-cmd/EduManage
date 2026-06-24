@@ -6,6 +6,7 @@ import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/constants/stat_card.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../core/router/route_names.dart';
+
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
@@ -90,7 +91,6 @@ class AdminDashboardScreen extends ConsumerWidget {
                 color: Colors.white,
               ),
             ),
-            titleTextStyle: const TextStyle(color: Colors.white),
           ),
 
           // ── Body content ──────────────────────────────────────
@@ -129,47 +129,63 @@ class AdminDashboardScreen extends ConsumerWidget {
       stream: FirebaseFirestore.instance.collection('students').snapshots(),
       builder: (context, studentSnap) {
         return StreamBuilder<QuerySnapshot>(
-          stream:
-              FirebaseFirestore.instance.collection('teachers').snapshots(),
+          stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
           builder: (context, teacherSnap) {
-            final studentCount =
-                studentSnap.data?.docs.length.toString() ?? '...';
-            final teacherCount =
-                teacherSnap.data?.docs.length.toString() ?? '...';
+            return StreamBuilder<QuerySnapshot>(
+              stream:
+                  FirebaseFirestore.instance.collection('classes').snapshots(),
+              builder: (context, classSnap) {
+                final studentCount =
+                    studentSnap.data?.docs.length.toString() ?? '...';
+                final teacherCount =
+                    teacherSnap.data?.docs.length.toString() ?? '...';
+                final classCount =
+                    classSnap.data?.docs.length.toString() ?? '...';
 
-            return GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              childAspectRatio: 1.2,
-              children: [
-                StatCard(
-                  label: 'Total Students',
-                  value: studentCount,
-                  icon: Icons.people_rounded,
-                  gradient: AppColors.adminGradient,
-                ),
-                StatCard(
-                  label: 'Total Teachers',
-                  value: teacherCount,
-                  icon: Icons.school_rounded,
-                  gradient: AppColors.teacherGradient,
-                ),
-                StatCard(
-                  label: 'Classes',
-                  value: '6',
-                  icon: Icons.class_rounded,
-                  gradient: AppColors.studentGradient,
-                ),
-                StatCard(
-                  label: 'Notices',
-                  value: '12',
-                  icon: Icons.campaign_rounded,
-                  gradient: AppColors.primaryGradient,
-                ),
-              ],
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 1.2,
+                  children: [
+                    StatCard(
+                      label: 'Total Students',
+                      value: studentCount,
+                      icon: Icons.people_rounded,
+                      gradient: AppColors.adminGradient,
+                    ),
+                    StatCard(
+                      label: 'Total Teachers',
+                      value: teacherCount,
+                      icon: Icons.school_rounded,
+                      gradient: AppColors.teacherGradient,
+                    ),
+                    StatCard(
+                      label: 'Classes',
+                      value: classCount,
+                      icon: Icons.class_rounded,
+                      gradient: AppColors.studentGradient,
+                    ),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('notices')
+                          .snapshots(),
+                      builder: (context, noticeSnap) {
+                        final noticeCount =
+                            noticeSnap.data?.docs.length.toString() ?? '...';
+                        return StatCard(
+                          label: 'Notices',
+                          value: noticeCount,
+                          icon: Icons.campaign_rounded,
+                          gradient: AppColors.primaryGradient,
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -178,58 +194,108 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-  final actions = [
-      _Action('Add Student', Icons.person_add_rounded, AppColors.adminColor),
-      _Action('Add Teacher', Icons.person_add_alt_1_rounded, AppColors.teacherColor),
-      _Action('New Notice', Icons.edit_document, AppColors.primary),
-      _Action('Reports', Icons.bar_chart_rounded, AppColors.accent),
-      _Action('Timetable', Icons.calendar_month_rounded, AppColors.warning),
-      _Action('Settings', Icons.settings_rounded, AppColors.textSecondary),
-      _Action('Approvals', Icons.fact_check_rounded, AppColors.success),
-        _Action('Fix Class Names', Icons.merge_type_rounded, AppColors.danger), 
-    ];
+    // Check if any classes exist — show a warning badge on Setup Classes if not
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+      builder: (context, classSnap) {
+        final hasClasses =
+            (classSnap.data?.docs.length ?? 0) > 0;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: actions.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.95,
-      ),
-      itemBuilder: (context, i) => QuickActionCard(
-        label: actions[i].label,
-        icon: actions[i].icon,
-        color: actions[i].color,
-        onTap: () {
-          switch (actions[i].label) {
-            case 'Add Student':
-              context.push('/admin/home/students/add');
-              break;
-            case 'Add Teacher':
-              context.push('/admin/home/teachers/add');
-              break;
-            case 'Reports':
-              context.push('/admin/home/reports');
-              break;
-            case 'Timetable':
-              context.push('/admin/home/timetable');
-              break;
-            case 'Settings':
-              context.push('/admin/home/settings');
-              break;
-            case 'Approvals':
-              context.push('/admin/home/approvals');
-              break;
-            case 'Fix Class Names':                              // NEW
-              context.push('/admin/home/fix-class-names');       // NEW
-              break;                                             // NEW
-          }
-        },
-      ),
+        final actions = [
+          _Action('Add Student',    Icons.person_add_rounded,         AppColors.adminColor),
+          _Action('Add Teacher',    Icons.person_add_alt_1_rounded,   AppColors.teacherColor),
+          _Action('New Notice',     Icons.edit_document,              AppColors.primary),
+          _Action('Reports',        Icons.bar_chart_rounded,          AppColors.accent),
+          _Action('Timetable',      Icons.calendar_month_rounded,     AppColors.warning),
+          _Action('Approvals',      Icons.fact_check_rounded,         AppColors.success),
+          _Action('Fix Classes',    Icons.merge_type_rounded,         AppColors.danger),
+          // Shows badge when no classes exist yet
+          _Action('Setup Classes',  Icons.auto_fix_high_rounded,
+              hasClasses ? AppColors.textSecondary : AppColors.warning,
+              badge: hasClasses ? null : '!'),
+        ];
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: actions.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.95,
+          ),
+          itemBuilder: (context, i) {
+            final action = actions[i];
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                QuickActionCard(
+                  label: action.label,
+                  icon: action.icon,
+                  color: action.color,
+                  onTap: () => _handleAction(context, action.label),
+                ),
+                if (action.badge != null)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: AppColors.warning,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '!',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  void _handleAction(BuildContext context, String label) {
+    switch (label) {
+      case 'Add Student':
+        context.push('/admin/home/students/add');
+        break;
+      case 'Add Teacher':
+        context.push('/admin/home/teachers/add');
+        break;
+      case 'New Notice':
+        context.push('/admin/home/notices');
+        break;
+      case 'Reports':
+        context.push('/admin/home/reports');
+        break;
+      case 'Timetable':
+        context.push('/admin/home/timetable');
+        break;
+      case 'Approvals':
+        context.push('/admin/home/approvals');
+        break;
+      case 'Fix Classes':
+        context.push('/admin/home/fix-class-names');
+        break;
+      case 'Setup Classes':
+        // Seeds Nursery → Grade 12 with sections A, B, C
+        context.push('/admin/home/seed-classes');
+        break;
+    }
   }
 
   Widget _buildRecentNotices() {
@@ -268,7 +334,8 @@ class _Action {
   final String label;
   final IconData icon;
   final Color color;
-  const _Action(this.label, this.icon, this.color);
+  final String? badge;
+  const _Action(this.label, this.icon, this.color, {this.badge});
 }
 
 class _NoticeCard extends StatelessWidget {
