@@ -76,6 +76,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {}
   }
 
+  Future<void> refreshApprovalStatus() async {
+    final user = state.user;
+    if (user == null) return;
+    await _restoreRole(user);
+  }
+
   /// Login — only works if user exists in Firestore AND is approved (or admin)
   Future<String?> login({
     required String email,
@@ -89,7 +95,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (!doc.exists) {
         await _auth.signOut();
         state = state.copyWith(isLoading: false);
-        return 'Account not found. Contact your administrator.';
+        // NOTE: AuthRepository.rejectUser() deletes the `users` doc (and
+        // the matching students/teachers/parents doc) but cannot delete
+        // the underlying Firebase Auth account — that needs Admin SDK /
+        // Cloud Functions, which this client app doesn't have. So a
+        // rejected user's email/password still authenticate successfully
+        // against Firebase Auth; this is the ONLY place that distinguishes
+        // "rejected" from "never existed" — both end up with no `users`
+        // doc, so we can't tell them apart here, but either way the
+        // correct user-facing message is the same: they cannot proceed
+        // and must talk to the school.
+        return 'This account is not active. Your registration may have '
+            'been declined, or the account no longer exists. Please '
+            'contact your school administrator.';
       }
 
       final data = doc.data()!;
@@ -229,7 +247,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Approve a pending user (admin action)
   Future<void> approveUser(String uid) => _repo.approveUser(uid);
 
-   Future<void> signOut() async {
+  Future<void> signOut() async {
     await NotificationService.instance.clearTokenOnSignOut();
     await _auth.signOut();
     final prefs = await SharedPreferences.getInstance();

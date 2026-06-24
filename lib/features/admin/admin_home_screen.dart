@@ -31,9 +31,13 @@ class AdminHomeScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('students').snapshots(),
+                        stream: FirebaseFirestore.instance
+                            .collection('students')
+                            .snapshots(),
                         builder: (context, snap) {
-                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          final count = snap.hasData
+                              ? snap.data!.docs.length
+                              : null;
                           return _StatCard(
                             label: 'Students',
                             value: count?.toString() ?? '...',
@@ -46,9 +50,13 @@ class AdminHomeScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
+                        stream: FirebaseFirestore.instance
+                            .collection('teachers')
+                            .snapshots(),
                         builder: (context, snap) {
-                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          final count = snap.hasData
+                              ? snap.data!.docs.length
+                              : null;
                           return _StatCard(
                             label: 'Teachers',
                             value: count?.toString() ?? '...',
@@ -61,9 +69,13 @@ class AdminHomeScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+                        stream: FirebaseFirestore.instance
+                            .collection('classes')
+                            .snapshots(),
                         builder: (context, snap) {
-                          final count = snap.hasData ? snap.data!.docs.length : null;
+                          final count = snap.hasData
+                              ? snap.data!.docs.length
+                              : null;
                           return _StatCard(
                             label: 'Classes',
                             value: count?.toString() ?? '...',
@@ -98,12 +110,42 @@ class AdminHomeScreen extends ConsumerWidget {
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                   children: [
-                    _QuickAction(icon: Icons.person_add_rounded, label: 'Add Student', color: AppColors.studentColor, onTap: () => context.push('/admin/home/students/add')),
-                    _QuickAction(icon: Icons.person_add_alt_1_rounded, label: 'Add Teacher', color: AppColors.teacherColor, onTap: () => context.push('/admin/home/teachers/add')),
-                    _QuickAction(icon: Icons.class_rounded, label: 'Manage Classes', color: AppColors.adminColor, onTap: () => context.push('/admin/home/classes')),
-                    _QuickAction(icon: Icons.calendar_month_rounded, label: 'Timetable', color: AppColors.primary, onTap: () => context.push('/admin/home/timetable')),
-                    _QuickAction(icon: Icons.attach_money_rounded, label: 'Fees', color: AppColors.warning, onTap: () => context.push('/admin/home/fees')),
-                    _QuickAction(icon: Icons.announcement_rounded, label: 'Notices', color: AppColors.accent, onTap: () => context.push('/admin/home/notices')),
+                    _QuickAction(
+                      icon: Icons.person_add_rounded,
+                      label: 'Add Student',
+                      color: AppColors.studentColor,
+                      onTap: () => context.push('/admin/home/students/add'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.person_add_alt_1_rounded,
+                      label: 'Add Teacher',
+                      color: AppColors.teacherColor,
+                      onTap: () => context.push('/admin/home/teachers/add'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.class_rounded,
+                      label: 'Manage Classes',
+                      color: AppColors.adminColor,
+                      onTap: () => context.push('/admin/home/classes'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.calendar_month_rounded,
+                      label: 'Timetable',
+                      color: AppColors.primary,
+                      onTap: () => context.push('/admin/home/timetable'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.attach_money_rounded,
+                      label: 'Fees',
+                      color: AppColors.warning,
+                      onTap: () => context.push('/admin/home/fees'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.announcement_rounded,
+                      label: 'Notices',
+                      color: AppColors.accent,
+                      onTap: () => context.push('/admin/home/notices'),
+                    ),
                   ],
                 ),
               ),
@@ -115,13 +157,16 @@ class AdminHomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text('Recent Activity', style: AppTextStyles.sectionTitle),
+                child: Text(
+                  'Recent Activity',
+                  style: AppTextStyles.sectionTitle,
+                ),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 14)),
             SliverList(
               delegate: SliverChildListDelegate([
-              _buildPendingApprovals(),
+                _buildPendingApprovals(),
                 const SizedBox(height: 32),
               ]),
             ),
@@ -157,15 +202,29 @@ class _AdminHeader extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Good Morning,', style: AppTextStyles.labelMedium.copyWith(color: Colors.white70)),
+                  Text(
+                    'Good Morning,',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: Colors.white70,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(userName, style: AppTextStyles.headingLarge.copyWith(color: Colors.white)),
+                  Text(
+                    userName,
+                    style: AppTextStyles.headingLarge.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Colors.white24,
-                child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 26),
+                child: const Icon(
+                  Icons.admin_panel_settings_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
             ],
           ),
@@ -180,9 +239,18 @@ class _AdminHeader extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search_rounded, color: Colors.white70, size: 20),
+                const Icon(
+                  Icons.search_rounded,
+                  color: Colors.white70,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
-                Text('Search students, teachers...', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white60)),
+                Text(
+                  'Search students, teachers...',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white60,
+                  ),
+                ),
               ],
             ),
           ),
@@ -197,7 +265,12 @@ class _StatCard extends StatelessWidget {
   final String label, value;
   final IconData icon;
   final Color color;
-  const _StatCard({required this.label, required this.value, required this.icon, required this.color});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -213,13 +286,20 @@ class _StatCard extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 8),
             Text(value, style: AppTextStyles.statValue),
             const SizedBox(height: 2),
-            Text(label, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
+            Text(
+              label,
+              style: AppTextStyles.labelSmall,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -233,7 +313,12 @@ class _QuickAction extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _QuickAction({required this.icon, required this.label, required this.color, required this.onTap});
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -250,11 +335,18 @@ class _QuickAction extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 8),
-            Text(label, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
+            Text(
+              label,
+              style: AppTextStyles.labelSmall,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -267,7 +359,13 @@ class _ActivityItem extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String title, subtitle, time;
-  const _ActivityItem({required this.icon, required this.color, required this.title, required this.subtitle, required this.time});
+  const _ActivityItem({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.time,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +381,10 @@ class _ActivityItem extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 12),
@@ -307,7 +408,11 @@ class _ActivityItem extends StatelessWidget {
 // ── Notice Card ──────────────────────────────────────────────────────────────
 class _NoticeCard extends StatelessWidget {
   final String title, body, type;
-  const _NoticeCard({required this.title, required this.body, required this.type});
+  const _NoticeCard({
+    required this.title,
+    required this.body,
+    required this.type,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -377,19 +482,41 @@ class _AdminBottomNav extends StatelessWidget {
       unselectedLabelStyle: AppTextStyles.navLabel,
       onTap: (i) {
         switch (i) {
-          case 0: context.go('/admin/home'); break;
-          case 1: context.go('/admin/home/students'); break;
-          case 2: context.go('/admin/home/teachers'); break;
-          case 3: context.go('/admin/home/reports'); break;
-          case 4: context.go('/admin/home/settings'); break;
+          case 0:
+            context.go('/admin/home');
+            break;
+          case 1:
+            context.go('/admin/home/students');
+            break;
+          case 2:
+            context.go('/admin/home/teachers');
+            break;
+          case 3:
+            context.go('/admin/home/reports');
+            break;
+          case 4:
+            context.go('/admin/home/settings');
+            break;
         }
       },
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.school_rounded), label: 'Students'),
-        BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Teachers'),
-        BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
-        BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Settings'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.school_rounded),
+          label: 'Students',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_rounded),
+          label: 'Teachers',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.bar_chart_rounded),
+          label: 'Reports',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.settings_rounded),
+          label: 'Settings',
+        ),
       ],
     );
   }
@@ -412,21 +539,32 @@ Widget _buildPendingApprovals() {
         );
       }
       return Column(
-        children: docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final name = data['name'] as String? ?? 'Unknown';
-          final role = data['role'] as String? ?? 'student';
-          final Color color = role == 'teacher'
-              ? AppColors.teacherColor
-              : role == 'parent'
-                  ? AppColors.accent
-                  : AppColors.studentColor;
-          return _NoticeCard(
-            title: '$name is waiting for approval',
-            body: '${role[0].toUpperCase()}${role.substring(1)} registration pending',
-            type: role,
-          );
-        }).toList(),
+        children: [
+          ...docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] as String? ?? 'Unknown';
+            final role = data['role'] as String? ?? 'student';
+            return GestureDetector(
+              onTap: () => context.push('/admin/home/approvals'),
+              child: _NoticeCard(
+                title: '$name is waiting for approval',
+                body:
+                    '${role[0].toUpperCase()}${role.substring(1)} registration pending — tap to review',
+                type: role,
+              ),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => context.push('/admin/home/approvals'),
+                child: const Text('Review all →'),
+              ),
+            ),
+          ),
+        ],
       );
     },
   );
@@ -451,8 +589,13 @@ Widget _buildPendingStream() {
             borderRadius: BorderRadius.circular(14),
             boxShadow: AppColors.cardShadow,
           ),
-          child: const Text('No pending approvals — all caught up!',
-              style: TextStyle(fontFamily: 'Poppins', color: AppColors.textSecondary)),
+          child: const Text(
+            'No pending approvals — all caught up!',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              color: AppColors.textSecondary,
+            ),
+          ),
         );
       }
       return Column(
@@ -463,13 +606,14 @@ Widget _buildPendingStream() {
           final Color color = role == 'teacher'
               ? AppColors.teacherColor
               : role == 'parent'
-                  ? AppColors.accent
-                  : AppColors.studentColor;
+              ? AppColors.accent
+              : AppColors.studentColor;
           return _ActivityItem(
             icon: Icons.person_add_rounded,
             color: color,
             title: '$name awaiting approval',
-            subtitle: '${role[0].toUpperCase()}${role.substring(1)} · Tap Approvals to review',
+            subtitle:
+                '${role[0].toUpperCase()}${role.substring(1)} · Tap Approvals to review',
             time: '',
           );
         }).toList(),

@@ -14,6 +14,7 @@ import 'package:school_management_system/features/admin/fees/fee_managemnet.dart
 import 'package:school_management_system/features/admin/tools/class_name_merge_screen.dart';
 import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
+import 'package:school_management_system/features/auth/screens/waiting_approval_screen.dart';
 import 'package:school_management_system/features/shared/notification/notifications.dart';
 import 'package:school_management_system/features/shared/profile/edit_profile/edit_profile_screen.dart';
 import 'package:school_management_system/features/shared/setting/change_password_screen.dart';
@@ -79,8 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
 
       // ── Pending approval ───────────────────────────────────────────────────
-      GoRoute(path: '/pending', builder: (_, __) => const PendingApprovalsScreen()),
-
+      GoRoute(path: '/pending', builder: (_, __) => const WaitingApprovalScreen()),
       // ── Admin ──────────────────────────────────────────────────────────────
       GoRoute(
         path: '/admin/home',
