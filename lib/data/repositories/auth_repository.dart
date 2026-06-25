@@ -138,7 +138,13 @@ class AuthRepository {
           'name': name,
           'email': email,
           'phone': extraData['phone'] ?? '',
-          'subject': extraData['subject'] ?? '',
+          // Support both: new `subjects` array (from AddTeacherScreen)
+          // and legacy `subject` string field
+          'subjects': extraData['subjects'] ?? <String>[],
+          'subject':
+              (extraData['subjects'] as List<dynamic>?)?.isNotEmpty == true
+              ? (extraData['subjects'] as List<dynamic>).first
+              : (extraData['subject'] ?? ''),
           'qualification': extraData['qualification'] ?? '',
           'classes': extraData['classes'] ?? <String>[],
           'approved': true,
@@ -165,8 +171,9 @@ class AuthRepository {
         .where('approved', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => {'uid': d.id, ...d.data()}).toList());
+        .map(
+          (snap) => snap.docs.map((d) => {'uid': d.id, ...d.data()}).toList(),
+        );
   }
 
   /// Approves a user, flipping `approved: true` on both the shared
@@ -234,51 +241,52 @@ class AuthRepository {
 
   /// All parent_children docs for a given student, joined with parent
   /// info — used by the "Manage Parents" sheet on a student's card.
-  Stream<List<Map<String, dynamic>>> watchParentsForStudent(
-      String studentId) {
+  Stream<List<Map<String, dynamic>>> watchParentsForStudent(String studentId) {
     return _fs.parentChildren
         .where('studentId', isEqualTo: studentId)
         .snapshots()
         .asyncMap((snap) async {
-      final results = <Map<String, dynamic>>[];
-      for (final doc in snap.docs) {
-        final parentId = doc.data()['parentId'] as String?;
-        if (parentId == null) continue;
-        final parentDoc = await _fs.parents.doc(parentId).get();
-        if (parentDoc.exists) {
-          results.add({
-            'parentId': parentId,
-            'name': parentDoc.data()?['name'] ?? 'Unknown',
-            'email': parentDoc.data()?['email'] ?? '',
-          });
-        }
-      }
-      return results;
-    });
+          final results = <Map<String, dynamic>>[];
+          for (final doc in snap.docs) {
+            final parentId = doc.data()['parentId'] as String?;
+            if (parentId == null) continue;
+            final parentDoc = await _fs.parents.doc(parentId).get();
+            if (parentDoc.exists) {
+              results.add({
+                'parentId': parentId,
+                'name': parentDoc.data()?['name'] ?? 'Unknown',
+                'email': parentDoc.data()?['email'] ?? '',
+              });
+            }
+          }
+          return results;
+        });
   }
 
   /// All approved parents not yet linked to this particular student —
   /// used to populate the "add parent" picker in the same sheet.
-  Stream<List<Map<String, dynamic>>> watchAvailableParents(
-      String studentId) {
+  Stream<List<Map<String, dynamic>>> watchAvailableParents(String studentId) {
     return _fs.parentChildren
         .where('studentId', isEqualTo: studentId)
         .snapshots()
         .asyncMap((linkedSnap) async {
-      final linkedIds = linkedSnap.docs
-          .map((d) => d.data()['parentId'] as String?)
-          .whereType<String>()
-          .toSet();
-      final allParents =
-          await _fs.parents.where('approved', isEqualTo: true).get();
-      return allParents.docs
-          .where((d) => !linkedIds.contains(d.id))
-          .map((d) => {
-                'parentId': d.id,
-                'name': d.data()['name'] ?? 'Unknown',
-                'email': d.data()['email'] ?? '',
-              })
-          .toList();
-    });
+          final linkedIds = linkedSnap.docs
+              .map((d) => d.data()['parentId'] as String?)
+              .whereType<String>()
+              .toSet();
+          final allParents = await _fs.parents
+              .where('approved', isEqualTo: true)
+              .get();
+          return allParents.docs
+              .where((d) => !linkedIds.contains(d.id))
+              .map(
+                (d) => {
+                  'parentId': d.id,
+                  'name': d.data()['name'] ?? 'Unknown',
+                  'email': d.data()['email'] ?? '',
+                },
+              )
+              .toList();
+        });
   }
 }
