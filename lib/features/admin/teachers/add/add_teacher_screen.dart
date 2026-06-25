@@ -7,6 +7,7 @@ import 'package:school_management_system/features/auth/providers/auth_provider.d
 import '../../../../../core/widgets/custom_button.dart';
 import '../../../../../core/widgets/custom_text_field.dart';
 import '../../../../../core/widgets/class_multi_select_field.dart';
+import 'package:school_management_system/core/constants/app_subjects.dart';
 
 class AddTeacherScreen extends ConsumerStatefulWidget {
   const AddTeacherScreen({super.key});
@@ -21,14 +22,15 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _subjectCtrl = TextEditingController();
-  final _qualificationCtrl = TextEditingController();
-  List<String> _selectedClasses = []; // FIX: was a comma-separated free-
-  // text controller (_classesCtrl). Free text let admins type "Grade 9A"
-  // for one teacher and "9A" for another, which silently broke
-  // TeacherRepository.watchAssignedClassNames (exact-match against the
-  // `classes` collection) the same way it broke student attendance — see
-  // core/widgets/class_multi_select_field.dart for the full rationale.
+
+  List<String> _selectedClasses = [];
+
+  // Multi-select subjects (replaces free-text _subjectCtrl)
+  List<String> _selectedSubjects = [];
+
+  // Single-select qualification (replaces free-text _qualificationCtrl)
+  String? _selectedQualification;
+
   bool _loading = false;
 
   @override
@@ -37,17 +39,34 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _phoneCtrl.dispose();
-    _subjectCtrl.dispose();
-    _qualificationCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedSubjects.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one subject.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedQualification == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a qualification.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
 
-    // FIXED: routed through AuthNotifier.adminCreateUser, which uses a
-    // secondary FirebaseApp instance so the admin's session is preserved.
     final error = await ref.read(authProvider.notifier).adminCreateUser(
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
@@ -55,9 +74,11 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
           role: 'teacher',
           extraData: {
             'phone': _phoneCtrl.text.trim(),
-            'subject': _subjectCtrl.text.trim(),
-            'qualification': _qualificationCtrl.text.trim(),
-            'classes': _selectedClasses, // exact matches to classes.name
+            // Stored as an array so Timetable can query:
+            //   .where('subjects', arrayContains: selectedSubject)
+            'subjects': _selectedSubjects,
+            'qualification': _selectedQualification,
+            'classes': _selectedClasses,
           },
         );
 
@@ -73,14 +94,12 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text('${_nameCtrl.text.trim()} has been added successfully.'),
+        content: Text('${_nameCtrl.text.trim()} has been added successfully.'),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-    // Admin remains logged in — no need to route to /login.
     context.pop();
   }
 
@@ -105,32 +124,42 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Info banner ──────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
                   color: AppColors.teacherColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.teacherColor.withOpacity(0.2)),
+                  border:
+                      Border.all(color: AppColors.teacherColor.withOpacity(0.2)),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.admin_panel_settings_rounded, color: AppColors.teacherColor, size: 20),
+                    Icon(Icons.admin_panel_settings_rounded,
+                        color: AppColors.teacherColor, size: 20),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Creating a teacher account. They will be able to login immediately. You will stay signed in as admin.',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.textSecondary),
+                        'Creating a teacher account. They will be able to login '
+                        'immediately. You will stay signed in as admin.',
+                        style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            color: AppColors.textSecondary),
                       ),
                     ),
                   ],
                 ),
               ),
+
+              // ── Basic fields ─────────────────────────────────────────
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,
                 prefixIcon: Icons.person_outline_rounded,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -163,36 +192,32 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 prefixIcon: Icons.phone_outlined,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Phone is required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Phone is required' : null,
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Subject',
-                      controller: _subjectCtrl,
-                      prefixIcon: Icons.subject_rounded,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Qualification',
-                      controller: _qualificationCtrl,
-                      prefixIcon: Icons.school_outlined,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                ],
+
+              // ── Qualification dropdown ────────────────────────────────
+              _QualificationDropdown(
+                value: _selectedQualification,
+                onChanged: (v) => setState(() => _selectedQualification = v),
               ),
               const SizedBox(height: 16),
+
+              // ── Subject multi-select ──────────────────────────────────
+              _SubjectMultiSelect(
+                selected: _selectedSubjects,
+                onChanged: (v) => setState(() => _selectedSubjects = v),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Class multi-select ────────────────────────────────────
               ClassMultiSelectField(
                 selected: _selectedClasses,
                 onChanged: (v) => setState(() => _selectedClasses = v),
               ),
               const SizedBox(height: 28),
+
               CustomButton(
                 label: 'Create Teacher Account',
                 onPressed: _save,
@@ -203,6 +228,171 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Qualification dropdown  (single-select)
+// ─────────────────────────────────────────────────────────────────────────────
+class _QualificationDropdown extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  const _QualificationDropdown({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Qualification',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.divider),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              hint: const Text(
+                'Select qualification',
+                style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14,
+                    color: AppColors.textHint),
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textSecondary),
+              borderRadius: BorderRadius.circular(14),
+              items: AppQualifications.all
+                  .map((q) => DropdownMenuItem(
+                        value: q,
+                        child: Text(q,
+                            style: const TextStyle(
+                                fontFamily: 'Poppins', fontSize: 14)),
+                      ))
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subject multi-select chip picker  (all subjects, teacher level)
+// ─────────────────────────────────────────────────────────────────────────────
+class _SubjectMultiSelect extends StatelessWidget {
+  final List<String> selected;
+  final ValueChanged<List<String>> onChanged;
+
+  const _SubjectMultiSelect(
+      {required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final subjects = AppSubjects.allSubjects;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Subjects Taught',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: subjects.map((subject) {
+              final isSelected = selected.contains(subject);
+              return GestureDetector(
+                onTap: () {
+                  final next = List<String>.from(selected);
+                  if (isSelected) {
+                    next.remove(subject);
+                  } else {
+                    next.add(subject);
+                  }
+                  onChanged(next);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color:
+                        isSelected ? AppColors.teacherColor : AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.teacherColor
+                          : AppColors.divider,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isSelected) ...[
+                        const Icon(Icons.check_rounded,
+                            size: 14, color: Colors.white),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        subject,
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isSelected ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        if (selected.isEmpty) ...[
+          const SizedBox(height: 6),
+          const Text(
+            'No subjects selected yet — tap to assign.',
+            style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 11,
+                color: AppColors.textHint),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -141,7 +141,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(role: 'admin'),
+            builder: (_, __) => const TimetableScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
           // GoRoute(path: 'history',    builder: (_, __) => const AdminActivityHistoryScreen()),
@@ -177,7 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(role: 'teacher'),
+            builder: (_, __) => const TimetableScreen(),
           ),
           GoRoute(
             path: 'messages',
@@ -196,7 +196,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(role: 'student'),
+            builder: (_, __) => const TimetableScreen(),
           ),
           GoRoute(
             path: 'assignments',
@@ -225,7 +225,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(role: 'parent'),
+            builder: (_, __) => const TimetableScreen(),
           ),
           GoRoute(
             path: 'attendance',
