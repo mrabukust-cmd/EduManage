@@ -10,11 +10,12 @@ class ClassesScreen extends StatelessWidget {
   const ClassesScreen({super.key});
 
   void _showAddClassSheet(BuildContext context) {
+    // Single combined name field — e.g. "Grade 9 - A"
     final nameCtrl = TextEditingController();
-    final sectionCtrl = TextEditingController();
-    final teacherCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    String? _selectedTeacherId;
+    String? _selectedTeacherName;
     bool loading = false;
+    final formKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
       context: context,
@@ -36,6 +37,7 @@ class ClassesScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Sheet handle
                 Center(
                   child: Container(
                     width: 40,
@@ -48,28 +50,157 @@ class ClassesScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text('Add Class', style: AppTextStyles.headingMedium),
+                const SizedBox(height: 6),
+                Text(
+                  'Use a single name that includes the section, e.g. "Grade 9 - A"',
+                  style:
+                      AppTextStyles.labelSmall.copyWith(color: AppColors.textHint),
+                ),
                 const SizedBox(height: 16),
+
+                // Combined class name field
                 CustomTextField(
                   label: 'Class Name',
-                  hint: 'e.g. Grade 9',
+                  hint: 'e.g. Grade 9 - A',
                   controller: nameCtrl,
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-                CustomTextField(
-                  label: 'Section',
-                  hint: 'e.g. A',
-                  controller: sectionCtrl,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Required' : null,
+
+                // Class Teacher — approved teachers dropdown
+                Text(
+                  'Class Teacher',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                CustomTextField(
-                  label: 'Class Teacher',
-                  hint: 'e.g. Mr. Khalid',
-                  controller: teacherCtrl,
+                const SizedBox(height: 8),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('teachers')
+                      .where('approved', isEqualTo: true)
+                      .orderBy('name')
+                      .snapshots(),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting &&
+                        !snap.hasData) {
+                      return Container(
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        alignment: Alignment.center,
+                        child: const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
+
+                    final teacherDocs = snap.data?.docs ?? [];
+
+                    if (teacherDocs.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: AppColors.warning.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: AppColors.warning, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'No approved teachers yet. You can assign one later.',
+                                style: AppTextStyles.labelSmall
+                                    .copyWith(color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return DropdownButtonFormField<String>(
+                      value: _selectedTeacherId,
+                      decoration: InputDecoration(
+                        hintText: 'Select a teacher (optional)',
+                        filled: true,
+                        fillColor: AppColors.background,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 2),
+                        ),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text(
+                            'None',
+                            style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: AppColors.textHint),
+                          ),
+                        ),
+                        ...teacherDocs.map((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final name = data['name'] as String? ?? 'Unknown';
+                          final subject =
+                              data['subject'] as String? ?? '';
+                          return DropdownMenuItem<String>(
+                            value: doc.id,
+                            child: Text(
+                              subject.isNotEmpty ? '$name — $subject' : name,
+                              style: const TextStyle(
+                                  fontFamily: 'Poppins', fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (id) {
+                        setSheetState(() {
+                          _selectedTeacherId = id;
+                          if (id == null) {
+                            _selectedTeacherName = '';
+                          } else {
+                            final doc = teacherDocs
+                                .firstWhere((d) => d.id == id);
+                            _selectedTeacherName = (doc.data()
+                                    as Map<String, dynamic>)['name']
+                                as String? ??
+                                '';
+                          }
+                        });
+                      },
+                    );
+                  },
                 ),
+
                 const SizedBox(height: 20),
                 CustomButton(
                   label: 'Save Class',
@@ -78,10 +209,13 @@ class ClassesScreen extends StatelessWidget {
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
                     setSheetState(() => loading = true);
-                    await FirebaseFirestore.instance.collection('classes').add({
+                    await FirebaseFirestore.instance
+                        .collection('classes')
+                        .add({
+                      // Single combined name — section is baked in
                       'name': nameCtrl.text.trim(),
-                      'section': sectionCtrl.text.trim(),
-                      'classTeacher': teacherCtrl.text.trim(),
+                      'classTeacher': _selectedTeacherName ?? '',
+                      'classTeacherId': _selectedTeacherId ?? '',
                       'createdAt': FieldValue.serverTimestamp(),
                     });
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
@@ -115,11 +249,14 @@ class ClassesScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: Text('Add Class',
-            style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
+            style:
+                AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream:
-            FirebaseFirestore.instance.collection('classes').orderBy('name').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('classes')
+            .orderBy('name')
+            .snapshots(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -129,12 +266,14 @@ class ClassesScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.class_outlined, size: 64, color: AppColors.textHint),
+                  const Icon(Icons.class_outlined,
+                      size: 64, color: AppColors.textHint),
                   const SizedBox(height: 16),
                   Text(
                     'No classes yet.\nTap "Add Class" to create one.',
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -145,7 +284,8 @@ class ClassesScreen extends StatelessWidget {
           return GridView.builder(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
             itemCount: docs.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
@@ -156,7 +296,6 @@ class ClassesScreen extends StatelessWidget {
               return _ClassCard(
                 docId: docs[i].id,
                 name: data['name'] ?? '',
-                section: data['section'] ?? '',
                 classTeacher: (data['classTeacher'] ?? '').toString().isEmpty
                     ? 'Unassigned'
                     : data['classTeacher'],
@@ -170,11 +309,10 @@ class ClassesScreen extends StatelessWidget {
 }
 
 class _ClassCard extends StatelessWidget {
-  final String docId, name, section, classTeacher;
+  final String docId, name, classTeacher;
   const _ClassCard({
     required this.docId,
     required this.name,
-    required this.section,
     required this.classTeacher,
   });
 
@@ -200,20 +338,33 @@ class _ClassCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(20),
+                  // Show full class name as a compact badge
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        name,
+                        style: AppTextStyles.labelTiny
+                            .copyWith(color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: Text('Sec $section',
-                        style: AppTextStyles.labelTiny.copyWith(color: Colors.white)),
                   ),
+                  const SizedBox(width: 4),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: Colors.white70, size: 18),
+                    icon: const Icon(Icons.more_vert_rounded,
+                        color: Colors.white70, size: 18),
                     onSelected: (v) {
                       if (v == 'delete') {
-                        FirebaseFirestore.instance.collection('classes').doc(docId).delete();
+                        FirebaseFirestore.instance
+                            .collection('classes')
+                            .doc(docId)
+                            .delete();
                       }
                     },
                     itemBuilder: (_) => const [
@@ -223,16 +374,29 @@ class _ClassCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Text(name,
-                  style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white, fontSize: 18)),
+              Text(
+                name,
+                style: AppTextStyles.bodyMediumBold
+                    .copyWith(color: Colors.white, fontSize: 16),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: 4),
-              Text(classTeacher, style: AppTextStyles.labelSmall.copyWith(color: Colors.white70)),
+              Text(
+                classTeacher,
+                style: AppTextStyles.labelSmall
+                    .copyWith(color: Colors.white70),
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.people_rounded, color: Colors.white70, size: 16),
+                  const Icon(Icons.people_rounded,
+                      color: Colors.white70, size: 16),
                   const SizedBox(width: 4),
-                  Text('$count students', style: AppTextStyles.labelTiny.copyWith(color: Colors.white70)),
+                  Text('$count students',
+                      style: AppTextStyles.labelTiny
+                          .copyWith(color: Colors.white70)),
                 ],
               ),
             ],

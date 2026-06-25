@@ -6,6 +6,7 @@ import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/core/widgets/class_dropdown.dart';
 import 'package:school_management_system/core/widgets/custom_button.dart';
 import 'package:school_management_system/core/widgets/custom_text_field.dart';
+import 'package:school_management_system/data/services/roll_number_service.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
@@ -20,13 +21,16 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _rollCtrl = TextEditingController();
-  String? _selectedClass; // FIX: was a free-text controller; now sourced
-  // from the `classes` collection via ClassDropdownField so the saved
-  // `class` value always exactly matches what attendance/grades/timetable
-  // screens query against. See core/widgets/class_dropdown_field.dart.
-  final _sectionCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
+
+  String? _selectedClass;
+
+  // Non-binding preview shown while the admin fills in the form.
+  // The real number is reserved only when _saveStudent() runs the
+  // Firestore transaction via RollNumberService.nextRollNo().
+  String _rollPreview = '—';
+  bool _loadingPreview = false;
+
   bool _isSaving = false;
 
   @override
@@ -34,11 +38,32 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    _rollCtrl.dispose();
-    _sectionCtrl.dispose();
     _contactCtrl.dispose();
     super.dispose();
   }
+
+  // ── class selection ───────────────────────────────────────────────────────
+
+  Future<void> _onClassChanged(String? className) async {
+    setState(() {
+      _selectedClass = className;
+      _rollPreview = '—';
+    });
+
+    if (className == null || className.isEmpty) return;
+
+    setState(() => _loadingPreview = true);
+    final preview =
+        await RollNumberService.instance.peekNextRollNo(className);
+    if (mounted) {
+      setState(() {
+        _rollPreview = preview;
+        _loadingPreview = false;
+      });
+    }
+  }
+
+  // ── save ──────────────────────────────────────────────────────────────────
 
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
@@ -48,20 +73,38 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       );
       return;
     }
+
     setState(() => _isSaving = true);
 
-    // FIXED: this no longer creates the account on the admin's own
-    // FirebaseAuth session. AuthNotifier.adminCreateUser uses a secondary
-    // FirebaseApp internally, so the admin stays signed in the whole time.
+    // Step 1 — Atomically reserve the next roll number for this class.
+    // If the subsequent Auth/Firestore writes fail, the counter has
+    // already advanced (a gap), but no two students ever share a number.
+    String rollNo;
+    try {
+      rollNo = await RollNumberService.instance.nextRollNo(_selectedClass!);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate roll number: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Step 2 — Create Auth account + Firestore docs via existing notifier.
     final error = await ref.read(authProvider.notifier).adminCreateUser(
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
           role: 'student',
           extraData: {
-            'rollNo': _rollCtrl.text.trim(),
-            'class': _selectedClass, // exact match to classes.name
-            'section': _sectionCtrl.text.trim(),
+            'rollNo': rollNo,
+            'class': _selectedClass,
+            'section': '', // schema compat; section is encoded in class name
             'contact': _contactCtrl.text.trim(),
           },
         );
@@ -78,16 +121,18 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text('${_nameCtrl.text.trim()} has been added successfully.'),
+        content: Text(
+            '${_nameCtrl.text.trim()} added — Roll No $rollNo'),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-    // Admin is still logged in — just go back to the students list.
     context.pop();
   }
+
+  // ── build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +144,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text('Add Student',
-            style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+            style:
+                AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       backgroundColor: AppColors.background,
       body: SingleChildScrollView(
@@ -109,34 +155,46 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Info banner ──────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
                   color: AppColors.adminColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.adminColor.withOpacity(0.2)),
+                  border: Border.all(
+                      color: AppColors.adminColor.withOpacity(0.2)),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.admin_panel_settings_rounded, color: AppColors.adminColor, size: 20),
+                    Icon(Icons.admin_panel_settings_rounded,
+                        color: AppColors.adminColor, size: 20),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Creating a student account. They will be able to login immediately. You will stay signed in as admin.',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.textSecondary),
+                        'Creating a student account. They will be able to '
+                        'login immediately. You will stay signed in as admin.',
+                        style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            color: AppColors.textSecondary),
                       ),
                     ),
                   ],
                 ),
               ),
+
+              // ── Name ─────────────────────────────────────────
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,
                 prefixIcon: Icons.person_outline_rounded,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Name required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Name required' : null,
               ),
               const SizedBox(height: 16),
+
+              // ── Email ─────────────────────────────────────────
               CustomTextField(
                 label: 'Email Address',
                 controller: _emailCtrl,
@@ -149,6 +207,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // ── Password ──────────────────────────────────────
               CustomTextField(
                 label: 'Login Password',
                 hint: 'Min. 6 characters',
@@ -162,48 +222,30 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Roll No',
-                      controller: _rollCtrl,
-                      prefixIcon: Icons.confirmation_number_outlined,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: ClassDropdownField(
-                      value: _selectedClass,
-                      onChanged: (v) => setState(() => _selectedClass = v),
-                    ),
-                  ),
-                ],
+
+              // ── Class + auto roll preview ─────────────────────
+              ClassDropdownField(
+                value: _selectedClass,
+                onChanged: _onClassChanged,
+              ),
+              const SizedBox(height: 10),
+              _RollPreviewChip(
+                preview: _rollPreview,
+                loading: _loadingPreview,
+                hasClass: _selectedClass != null,
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Section',
-                      controller: _sectionCtrl,
-                      prefixIcon: Icons.layers_rounded,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Contact',
-                      controller: _contactCtrl,
-                      keyboardType: TextInputType.phone,
-                      prefixIcon: Icons.phone_rounded,
-                    ),
-                  ),
-                ],
+
+              // ── Contact ───────────────────────────────────────
+              CustomTextField(
+                label: 'Contact',
+                controller: _contactCtrl,
+                keyboardType: TextInputType.phone,
+                prefixIcon: Icons.phone_rounded,
               ),
               const SizedBox(height: 28),
+
+              // ── Submit ────────────────────────────────────────
               CustomButton(
                 label: 'Create Student Account',
                 isLoading: _isSaving,
@@ -212,6 +254,67 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Roll preview chip ─────────────────────────────────────────────────────────
+
+class _RollPreviewChip extends StatelessWidget {
+  final String preview;
+  final bool loading;
+  final bool hasClass;
+
+  const _RollPreviewChip({
+    required this.preview,
+    required this.loading,
+    required this.hasClass,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: hasClass ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.adminColor.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.adminColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.tag_rounded,
+                size: 16, color: AppColors.adminColor.withOpacity(0.8)),
+            const SizedBox(width: 8),
+            Text(
+              'Roll No will be assigned: ',
+              style: AppTextStyles.labelSmall
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+            if (loading)
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: AppColors.adminColor),
+              )
+            else
+              Text(
+                preview,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.adminColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            const Spacer(),
+            Text('auto-generated',
+                style: AppTextStyles.labelTiny
+                    .copyWith(color: AppColors.textHint)),
+          ],
         ),
       ),
     );

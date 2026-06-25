@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/widgets/class_dropdown.dart';
+import 'package:school_management_system/data/services/roll_number_service.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
 
@@ -48,11 +49,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+              onChanged: (v) =>
+                  setState(() => _searchQuery = v.toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Search students...',
-                prefixIcon:
-                    const Icon(Icons.search_rounded, color: AppColors.textHint),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.textHint),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -114,13 +116,11 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                 }).toList();
 
                 return ListView.separated(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                   itemCount: docs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
-                    final data =
-                        docs[i].data() as Map<String, dynamic>;
+                    final data = docs[i].data() as Map<String, dynamic>;
                     return _StudentTile(
                       docId: docs[i].id,
                       name: data['name'] ?? '',
@@ -148,7 +148,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   }
 }
 
-// ── Student list tile ────────────────────────────────────────
+// ── Student list tile ────────────────────────────────────────────────────────
 class _StudentTile extends StatelessWidget {
   final String docId, name, email, rollNo, className;
 
@@ -210,7 +210,8 @@ class _StudentTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    _Badge(label: 'Roll: $rollNo', color: AppColors.adminColor),
+                    _Badge(
+                        label: 'Roll: $rollNo', color: AppColors.adminColor),
                     const SizedBox(width: 6),
                     _Badge(label: className, color: AppColors.accent),
                   ],
@@ -266,7 +267,7 @@ class _Badge extends StatelessWidget {
   }
 }
 
-// ── Add Student bottom sheet ─────────────────────────────────
+// ── Add Student bottom sheet ─────────────────────────────────────────────────
 class _AddStudentSheet extends StatefulWidget {
   const _AddStudentSheet();
 
@@ -278,11 +279,43 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _rollCtrl = TextEditingController();
-  String? _selectedClass; // FIX: replaced free-text _classCtrl with a
-  // dropdown sourced from the `classes` collection — see
-  // core/widgets/class_dropdown_field.dart for why.
+
+  String? _selectedClass;
+
+  // Roll number preview — non-transactional, shown for UX only.
+  String _rollPreview = '—';
+  bool _loadingPreview = false;
+
   bool _loading = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── class selection ────────────────────────────────────────────────────────
+
+  Future<void> _onClassChanged(String? className) async {
+    setState(() {
+      _selectedClass = className;
+      _rollPreview = '—';
+    });
+    if (className == null || className.isEmpty) return;
+
+    setState(() => _loadingPreview = true);
+    final preview =
+        await RollNumberService.instance.peekNextRollNo(className);
+    if (mounted) {
+      setState(() {
+        _rollPreview = preview;
+        _loadingPreview = false;
+      });
+    }
+  }
+
+  // ── save ──────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -293,20 +326,38 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
       return;
     }
     setState(() => _loading = true);
+
     try {
+      // 1. Reserve roll number atomically.
+      final rollNo = await RollNumberService.instance
+          .nextRollNo(_selectedClass!);
+
+      // 2. Write student doc directly (this sheet doesn't use AuthNotifier
+      //    because it's a lightweight inline sheet without password).
       await FirebaseFirestore.instance.collection('students').add({
         'name': _nameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
-        'rollNo': _rollCtrl.text.trim(),
+        'rollNo': rollNo,
         'class': _selectedClass,
         'section': '',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     }
   }
+
+  // ── build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -326,7 +377,7 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sheet handle
+            // Handle
             Center(
               child: Container(
                 width: 40,
@@ -348,6 +399,7 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
               ),
             ),
             const SizedBox(height: 24),
+
             CustomTextField(
               label: 'Full Name',
               controller: _nameCtrl,
@@ -365,27 +417,71 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
                   v == null || v.isEmpty ? 'Email required' : null,
             ),
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: CustomTextField(
-                    label: 'Roll No',
-                    controller: _rollCtrl,
-                    prefixIcon: Icons.tag_rounded,
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Required' : null,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: ClassDropdownField(
-                    value: _selectedClass,
-                    onChanged: (v) => setState(() => _selectedClass = v),
-                  ),
-                ),
-              ],
+
+            // Class dropdown (full width)
+            ClassDropdownField(
+              value: _selectedClass,
+              onChanged: _onClassChanged,
             ),
+            const SizedBox(height: 10),
+
+            // Auto roll preview
+            AnimatedOpacity(
+              opacity: _selectedClass != null ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: AppColors.adminColor.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppColors.adminColor.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.tag_rounded,
+                        size: 14,
+                        color: AppColors.adminColor.withOpacity(0.8)),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Roll No: ',
+                      style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          color: AppColors.textSecondary),
+                    ),
+                    if (_loadingPreview)
+                      const SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: AppColors.adminColor),
+                      )
+                    else
+                      Text(
+                        _rollPreview,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.adminColor,
+                        ),
+                      ),
+                    const Spacer(),
+                    const Text(
+                      'auto-generated',
+                      style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 10,
+                          color: AppColors.textHint),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 24),
             CustomButton(
               label: 'Save Student',
