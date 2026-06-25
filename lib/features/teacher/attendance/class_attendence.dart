@@ -3,14 +3,40 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'attendence_screen.dart';
 
 /// Shows registered students of ONE class and lets the teacher mark
-/// and submit attendance. Written records are immediately visible in
-/// StudentAttendanceScreen and ParentAttendanceScreen because they both
-/// query: attendance WHERE studentId == uid AND date == today.
+/// and submit attendance for TODAY ONLY. Written records are immediately
+/// visible in StudentAttendanceScreen and ParentAttendanceScreen because
+/// they both query: attendance WHERE studentId == uid AND date == today.
+///
+/// THE FIX (no double attendance, date is mandatory):
+/// ──────────────────────────────────────────────────────────────────────
+/// 1. DATE IS ALWAYS VISIBLE AND MANDATORY. The date being marked is
+///    shown at the top of the screen at all times — it is never implicit.
+///    There is no date picker: attendance can only be marked for today,
+///    which removes any chance of accidentally marking the wrong day.
+///
+/// 2. NO DOUBLE ATTENDANCE AT THE DATA LAYER. Each (student, date) pair
+///    maps to exactly one deterministic Firestore document ID:
+///    `attendance/{studentId}_{yyyy-MM-dd}`. Submitting again for the
+///    same day always overwrites that same document — it is structurally
+///    impossible to create two attendance records for one student on one
+///    day, no matter how many times submit is pressed.
+///
+/// 3. NO SILENT DOUBLE-SUBMIT AT THE UI LAYER. Before showing the marking
+///    list, this screen now checks Firestore for an existing attendance
+///    record for this class + today. If one exists:
+///      - An "Already marked today" banner is shown.
+///      - Every student's existing status is loaded and pre-filled, so
+///        the teacher sees exactly what was previously submitted.
+///      - The teacher can still edit individual marks and press
+///        "Update Attendance" to re-submit — this is an intentional
+///        correction path, not an accidental duplicate, and it still
+///        lands on the same deterministic document per student.
 class ClassAttendanceScreen extends ConsumerStatefulWidget {
   final String className;
   const ClassAttendanceScreen({super.key, required this.className});
@@ -24,6 +50,11 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
   bool _submitting = false;
   bool _submitted = false;
 
+  // ── Existing-marks-for-today lookup ──────────────────────────────────
+  bool _loadingExisting = true;
+  bool _alreadyMarkedToday = false;
+  DateTime? _lastMarkedAt;
+
   String get _todayKey {
     final now = DateTime.now();
     return '${now.year.toString().padLeft(4, '0')}-'
@@ -31,32 +62,100 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
         '${now.day.toString().padLeft(2, '0')}';
   }
 
+  String get _todayDisplay => DateFormat('EEEE, MMM d, yyyy').format(DateTime.now());
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingAttendance();
+  }
+
+  /// Checks whether this class already has attendance recorded for today,
+  /// and if so, pre-fills every student's status from Firestore instead
+  /// of leaving them blank. Runs once when the screen opens.
+  Future<void> _loadExistingAttendance() async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final snap = await db
+          .collection('attendance')
+          .where('className', isEqualTo: widget.className)
+          .where('date', isEqualTo: _todayKey)
+          .get();
+
+      if (!mounted) return;
+
+      if (snap.docs.isEmpty) {
+        setState(() {
+          _alreadyMarkedToday = false;
+          _loadingExisting = false;
+        });
+        return;
+      }
+
+      // Pre-fill the marking state from whatever was already submitted.
+      final notifier =
+          ref.read(attendanceStatusesProvider(widget.className).notifier);
+      DateTime? latest;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final studentId = data['studentId'] as String?;
+        final statusStr = data['status'] as String?;
+        if (studentId == null || statusStr == null) continue;
+        final status = AttendanceStatus.values.firstWhere(
+          (s) => s.name == statusStr,
+          orElse: () => AttendanceStatus.absent,
+        );
+        notifier.setStatus(studentId, status);
+
+        final ts = (data['createdAt'] as Timestamp?)?.toDate() ??
+            (data['timestamp'] as Timestamp?)?.toDate();
+        if (ts != null && (latest == null || ts.isAfter(latest))) {
+          latest = ts;
+        }
+      }
+
+      setState(() {
+        _alreadyMarkedToday = true;
+        _lastMarkedAt = latest;
+        _loadingExisting = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _alreadyMarkedToday = false;
+          _loadingExisting = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submitAttendance(
     List<StudentAttendance> students,
     Map<String, AttendanceStatus> statuses,
   ) async {
+    // Date is mandatory and fixed to today — there is no path through
+    // this method that writes any other date, by construction.
+    final dateKey = _todayKey;
+
     setState(() => _submitting = true);
     try {
       final teacherId = FirebaseAuth.instance.currentUser?.uid ?? '';
       final db = FirebaseFirestore.instance;
 
-      // Use a batch write for atomicity.
-      // Each document: attendance/{studentId}_{date}
-      // This allows upsert (teacher can re-submit to correct mistakes).
-      // Student and parent screens query: studentId == uid, date == dateStr
+      // Deterministic doc ID per (student, date) = upsert, never a dupe.
+      // Re-submitting today always overwrites the same set of docs.
       final batch = db.batch();
 
       for (final student in students) {
         final status = statuses[student.id] ?? AttendanceStatus.absent;
-        // Deterministic doc ID = easy upsert + no duplicate records per day
         final docRef = db
             .collection('attendance')
-            .doc('${student.id}_$_todayKey');
+            .doc('${student.id}_$dateKey');
         batch.set(docRef, {
           'studentId': student.id,
           'studentName': student.name,
           'className': widget.className,
-          'date': _todayKey,
+          'date': dateKey,
           'status': status.name, // 'present' | 'absent' | 'late'
           'markedBy': teacherId,
           'timestamp': FieldValue.serverTimestamp(),
@@ -70,11 +169,13 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
       setState(() {
         _submitting = false;
         _submitted = true;
+        _alreadyMarkedToday = true;
+        _lastMarkedAt = DateTime.now();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Attendance for ${widget.className} submitted successfully!'),
+              'Attendance for ${widget.className} on $_todayDisplay saved successfully!'),
           backgroundColor: AppColors.teacherColor,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -145,10 +246,70 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
       ),
       body: Column(
         children: [
+          // ── Mandatory date bar — always visible, never implicit ──────
+          Container(
+            width: double.infinity,
+            color: AppColors.teacherColor,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_rounded,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Marking attendance for: $_todayDisplay',
+                      style: AppTextStyles.bodyMediumBold
+                          .copyWith(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Already-marked banner ─────────────────────────────────────
+          if (!_loadingExisting && _alreadyMarkedToday)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      color: AppColors.warning, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _lastMarkedAt != null
+                          ? 'Already marked today at ${DateFormat('h:mm a').format(_lastMarkedAt!)}. '
+                              'Existing marks are pre-filled below — change anything and tap '
+                              '"Update Attendance" to correct it.'
+                          : 'Already marked today. Existing marks are pre-filled below — '
+                              'change anything and tap "Update Attendance" to correct it.',
+                      style: AppTextStyles.labelSmall
+                          .copyWith(color: AppColors.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // ── Summary Bar ──────────────────────────────────────
           Container(
             color: AppColors.teacherColor,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
             child: Row(
               children: [
                 _SummaryChip(
@@ -199,7 +360,9 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
 
           // ── Student List ─────────────────────────────────────
           Expanded(
-            child: studentsAsync.when(
+            child: _loadingExisting
+                ? const Center(child: CircularProgressIndicator())
+                : studentsAsync.when(
               data: (students) {
                 if (students.isEmpty) {
                   return Center(
@@ -254,7 +417,12 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _submitting || totalCount == 0 || _submitted
+                // Note: unlike before, the button is NOT permanently
+                // disabled after one submit in this session. Since every
+                // write targets the same deterministic doc per student
+                // per day, re-submitting is a safe, intentional correction
+                // — not a duplicate. _submitted only drives the label/icon.
+                onPressed: _submitting || totalCount == 0 || _loadingExisting
                     ? null
                     : () async {
                         final statuses = ref
@@ -269,14 +437,16 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : Icon(_submitted
+                    : Icon(_submitted || _alreadyMarkedToday
                         ? Icons.check_circle_rounded
                         : Icons.save_rounded),
                 label: Text(_submitting
                     ? 'Submitting...'
                     : _submitted
-                        ? 'Submitted ✓'
-                        : 'Submit Attendance'),
+                        ? 'Updated ✓'
+                        : _alreadyMarkedToday
+                            ? 'Update Attendance'
+                            : 'Submit Attendance'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _submitted
                       ? AppColors.success
