@@ -10,13 +10,15 @@ import 'package:school_management_system/data/services/notification_service.dart
 // ── Auth state ──────────────────────────────────────────────
 class AuthState {
   final bool isLoading;
+  final bool isInitializing;
   final String? error;
   final User? user;
   final String? role;
-  final bool isPending; // true = registered but not approved by admin yet
+  final bool isPending;
 
   const AuthState({
     this.isLoading = false,
+    this.isInitializing = false,
     this.error,
     this.user,
     this.role,
@@ -25,6 +27,7 @@ class AuthState {
 
   AuthState copyWith({
     bool? isLoading,
+    bool? isInitializing,
     String? error,
     User? user,
     String? role,
@@ -32,6 +35,7 @@ class AuthState {
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
+      isInitializing: isInitializing ?? this.isInitializing,
       error: error ?? this.error,
       user: user ?? this.user,
       role: role ?? this.role,
@@ -40,7 +44,6 @@ class AuthState {
   }
 }
 
-// ── Auth Notifier ───────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _auth = AuthService.instance;
   final AuthRepository _repo = AuthRepository.instance;
@@ -53,15 +56,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void _init() {
     final user = _auth.currentUser;
     if (user != null) {
-      state = state.copyWith(user: user);
+      // isInitializing=true blocks ALL router redirects until
+      // Firestore confirms the role and approval status
+      state = state.copyWith(user: user, isInitializing: true);
       _restoreRole(user);
     }
+    // if user is null, isInitializing stays false → router goes to /login normally
   }
 
   Future<void> _restoreRole(User user) async {
     try {
       final doc = await _db.collection('users').doc(user.uid).get();
-      if (!doc.exists) return;
+      if (!doc.exists) {
+        state = state.copyWith(isInitializing: false);
+        return;
+      }
       final data = doc.data()!;
       final role = data['role'] as String? ?? 'student';
       final approved = data['approved'] as bool? ?? false;
@@ -69,11 +78,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (role == 'admin' || approved) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_role', role);
-        state = state.copyWith(role: role, isPending: false);
+        state = state.copyWith(
+          role: role,
+          isPending: false,
+          isInitializing: false,
+        );
       } else {
-        state = state.copyWith(role: role, isPending: true);
+        state = state.copyWith(
+          role: role,
+          isPending: true,
+          isInitializing: false,
+        );
       }
-    } catch (_) {}
+    } catch (_) {
+      // On error, release the block so the app doesn't freeze
+      state = state.copyWith(isInitializing: false);
+    }
   }
 
   Future<void> refreshApprovalStatus() async {
@@ -82,7 +102,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _restoreRole(user);
   }
 
-  /// Login — only works if user exists in Firestore AND is approved (or admin)
   Future<String?> login({
     required String email,
     required String password,
@@ -95,16 +114,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (!doc.exists) {
         await _auth.signOut();
         state = state.copyWith(isLoading: false);
-        // NOTE: AuthRepository.rejectUser() deletes the `users` doc (and
-        // the matching students/teachers/parents doc) but cannot delete
-        // the underlying Firebase Auth account — that needs Admin SDK /
-        // Cloud Functions, which this client app doesn't have. So a
-        // rejected user's email/password still authenticate successfully
-        // against Firebase Auth; this is the ONLY place that distinguishes
-        // "rejected" from "never existed" — both end up with no `users`
-        // doc, so we can't tell them apart here, but either way the
-        // correct user-facing message is the same: they cannot proceed
-        // and must talk to the school.
         return 'This account is not active. Your registration may have '
             'been declined, or the account no longer exists. Please '
             'contact your school administrator.';
@@ -121,7 +130,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           user: cred.user,
           role: role,
         );
-        return 'PENDING'; // Special signal for pending state
+        return 'PENDING';
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -134,7 +143,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isPending: false,
       );
 
-      return null; // success
+      return null;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(isLoading: false);
       switch (e.code) {
@@ -158,7 +167,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Public registration for students, teachers, and admins.
   Future<String?> register({
     required String name,
     required String email,
@@ -186,7 +194,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await prefs.setString('user_role', role);
       }
 
-      return null; // success
+      return null;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(isLoading: false);
       switch (e.code) {
@@ -208,17 +216,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Admin-only: create a student or teacher account.
-  ///
-  /// FIXED: this now delegates to AuthRepository.adminCreateUser, which
-  /// uses a secondary FirebaseApp instance internally. The admin's
-  /// session and `state.user` here are NEVER touched, so no
-  /// "please sign in again" dialog and no navigation to /login is needed.
   Future<String?> adminCreateUser({
     required String name,
     required String email,
     required String password,
-    required String role, // 'student' | 'teacher'
+    required String role,
     Map<String, dynamic> extraData = const {},
   }) async {
     try {
@@ -229,7 +231,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         role: role,
         extraData: extraData,
       );
-      return null; // success — admin is still logged in, nothing to restore
+      return null;
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
@@ -244,7 +246,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Approve a pending user (admin action)
   Future<void> approveUser(String uid) => _repo.approveUser(uid);
 
   Future<void> signOut() async {
@@ -255,14 +256,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
-  // Keep backward compat alias
   Future<void> logout() => signOut();
 
   String? get currentRole => state.role;
   User? get currentUser => state.user;
 }
 
-// ── Provider ────────────────────────────────────────────────
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
 });
