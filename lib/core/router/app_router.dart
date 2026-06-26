@@ -15,6 +15,11 @@ import 'package:school_management_system/features/admin/tools/class_name_merge_s
 import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/auth/screens/waiting_approval_screen.dart';
+import 'package:school_management_system/features/shared/about/about_app_screen.dart';
+import 'package:school_management_system/features/shared/about/privacy%20_policy_screen.dart';
+import 'package:school_management_system/features/shared/about/terms_of_services.dart';
+import 'package:school_management_system/features/shared/help/help_support.dart';
+import 'package:school_management_system/features/shared/notification/notification_setting.dart';
 import 'package:school_management_system/features/shared/notification/notifications.dart';
 import 'package:school_management_system/features/shared/profile/edit_profile/edit_profile_screen.dart';
 import 'package:school_management_system/features/shared/setting/change_password_screen.dart';
@@ -328,17 +333,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/password',
         builder: (_, __) => const ChangePasswordScreen(),
       ),
+      // FIX: this route was referenced from profile_screen.dart's
+      // "Notifications" settings row but never had a matching GoRoute —
+      // tapping it threw a GoRouter "no matching route" error. Added now,
+      // backed by a real preferences screen instead of a placeholder.
+      GoRoute(
+        path: '/settings/notifications',
+        builder: (_, __) => const NotificationSettingsScreen(),
+      ),
+      // FIX: replaced "Coming Soon" placeholder with a real screen.
       GoRoute(
         path: '/help',
-        builder: (_, __) => const Scaffold(
-          body: Center(child: Text('Help – Coming Soon')),
-        ),
+        builder: (_, __) => const HelpSupportScreen(),
       ),
+      // FIX: replaced "Coming Soon" placeholder with a real screen.
       GoRoute(
         path: '/about',
-        builder: (_, __) => const Scaffold(
-          body: Center(child: Text('About – Coming Soon')),
-        ),
+        builder: (_, __) => const AboutAppScreen(),
+      ),
+      // New: school-management-specific legal screens, linked from
+      // AboutAppScreen's "Legal" section (Privacy Policy / Terms of Service
+      // rows previously just showed a "coming soon" SnackBar).
+      GoRoute(
+        path: '/legal/privacy',
+        builder: (_, __) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        builder: (_, __) => const TermsOfServiceScreen(),
       ),
     ],
 

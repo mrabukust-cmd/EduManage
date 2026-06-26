@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:school_management_system/core/constants/app_subjects.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/core/widgets/custom_button.dart';
@@ -10,10 +11,34 @@ import 'package:school_management_system/core/widgets/custom_text_field.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 // ── Place this file at:
-// lib/features/shared/profile/edit_profile_screen.dart
+// lib/features/shared/profile/edit_profile/edit_profile_screen.dart
 //
 // Update route in app_router.dart:
 //   GoRoute(path: '/profile/edit', builder: (_, __) => const EditProfileScreen()),
+//
+// CHANGE 1: Student "Roll No" and "Class" are admin-managed values (set when
+// the admin creates/edits the student record — see AddStudentScreen,
+// ClassDropdownField, RollNumberService). They were previously shown as
+// editable CustomTextFields here, which let a student silently change
+// their own roll number / class on this screen with zero validation and
+// no write-back consistency with `class_counters` or the `classes`
+// collection. They are now displayed as read-only info chips with a
+// small "Set by admin" note instead.
+//
+// CHANGE 2: Teacher "Subject" is also admin-managed (assigned via
+// ClassMultiSelectField / the subject multi-select on AddTeacherScreen,
+// and used elsewhere for exact-match Firestore queries like
+// `where('subjects', arrayContains: subject)` on the Timetable and
+// Assignments screens). A teacher could previously free-type a subject
+// here that didn't match anything in AppSubjects.allSubjects, silently
+// breaking those queries. Subject is now shown as the same locked
+// read-only chip used for Roll No / Class — never editable here.
+//
+// CHANGE 3: Teacher "Qualification" is still teacher-editable (unlike
+// Subject), but is now a dropdown sourced from AppQualifications.all
+// instead of a free-text field, for the same reason every other
+// "pick one of a fixed set of values" field in this app (Class, Subject)
+// is a dropdown rather than free text — consistency + no typo drift.
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -29,11 +54,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _addressCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
 
-  // Role-specific
-  final _rollCtrl = TextEditingController();
-  final _classCtrl = TextEditingController();
-  final _subjectCtrl = TextEditingController();
-  final _qualificationCtrl = TextEditingController();
+  // Teacher's subject — LOCKED. Read from Firestore, never edited, never
+  // sent back on save. Handles both the new `subjects` array field and
+  // the legacy single `subject` string field (see AuthRepository.adminCreateUser).
+  String _subjectDisplay = '';
+
+  // Teacher's qualification — still editable, but now via a dropdown
+  // constrained to AppQualifications.all instead of free text.
+  String? _selectedQualification;
+
+  // Student academic info — READ-ONLY now, populated from Firestore,
+  // never sent back on save.
+  String _rollNo = '';
+  String _className = '';
+  String _section = '';
 
   bool _isLoading = false;
   bool _isFetching = true;
@@ -68,16 +102,35 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           .doc(uid)
           .get();
       final sData = sDoc.data() ?? {};
-      _rollCtrl.text = sData['rollNo'] as String? ?? '';
-      _classCtrl.text = sData['class'] as String? ?? '';
+      _rollNo = sData['rollNo'] as String? ?? '';
+      _className = sData['class'] as String? ?? '';
+      _section = sData['section'] as String? ?? '';
     } else if (role == 'teacher') {
       final tDoc = await FirebaseFirestore.instance
           .collection('teachers')
           .doc(uid)
           .get();
       final tData = tDoc.data() ?? {};
-      _subjectCtrl.text = tData['subject'] as String? ?? '';
-      _qualificationCtrl.text = tData['qualification'] as String? ?? '';
+
+      // Prefer the new `subjects` array; fall back to the legacy single
+      // `subject` string field for teachers created before that change.
+      final subjectsList = (tData['subjects'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          <String>[];
+      _subjectDisplay = subjectsList.isNotEmpty
+          ? subjectsList.join(', ')
+          : (tData['subject'] as String? ?? '');
+
+      final storedQualification = tData['qualification'] as String? ?? '';
+      // Only pre-select it in the dropdown if it's one of the known
+      // values — an old/free-text qualification from before this screen
+      // had a dropdown would otherwise crash DropdownButtonFormField.
+      _selectedQualification =
+          AppQualifications.all.contains(storedQualification)
+              ? storedQualification
+              : null;
     }
 
     if (mounted) setState(() => _isFetching = false);
@@ -106,16 +159,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update role-specific collection
+      // Update role-specific collection.
+      // NOTE: rollNo/class are intentionally NEVER written here anymore —
+      // they are admin-managed fields (see header comment).
       if (role == 'student') {
         await FirebaseFirestore.instance
             .collection('students')
             .doc(uid)
-            .update({
-          'name': name,
-          'rollNo': _rollCtrl.text.trim(),
-          'class': _classCtrl.text.trim(),
-        });
+            .update({'name': name});
       } else if (role == 'teacher') {
         await FirebaseFirestore.instance
             .collection('teachers')
@@ -123,8 +174,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             .update({
           'name': name,
           'phone': _phoneCtrl.text.trim(),
-          'subject': _subjectCtrl.text.trim(),
-          'qualification': _qualificationCtrl.text.trim(),
+          // 'subject'/'subjects' intentionally NEVER written here — see
+          // header comment (admin-managed, locked in the UI below).
+          'qualification': _selectedQualification ?? '',
         });
       }
 
@@ -163,10 +215,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
     _bioCtrl.dispose();
-    _rollCtrl.dispose();
-    _classCtrl.dispose();
-    _subjectCtrl.dispose();
-    _qualificationCtrl.dispose();
     super.dispose();
   }
 
@@ -233,7 +281,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const SizedBox(height: 28),
 
                     // ── Section: Personal ────────────────────────
-                    _SectionLabel(label: 'Personal Information'),
+                    _SectionLabel(label: 'Personal Information', color: roleColor),
                     const SizedBox(height: 14),
 
                     CustomTextField(
@@ -270,26 +318,40 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       maxLines: 3,
                     ),
 
-                    // ── Section: Role-specific ───────────────────
+                    // ── Section: Academic (STATIC — admin managed) ──
                     if (role == 'student') ...[
                       const SizedBox(height: 28),
-                      _SectionLabel(label: 'Academic Information'),
+                      _SectionLabel(
+                          label: 'Academic Information', color: roleColor),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Managed by your school administrator',
+                        style: AppTextStyles.labelTiny
+                            .copyWith(color: AppColors.textHint),
+                      ),
                       const SizedBox(height: 14),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: CustomTextField(
+                            child: _ReadOnlyInfoChip(
+                              icon: Icons.tag_rounded,
                               label: 'Roll No',
-                              controller: _rollCtrl,
-                              prefixIcon: Icons.tag_rounded,
+                              value: _rollNo.isEmpty ? 'Not set' : _rollNo,
+                              color: roleColor,
                             ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
-                            child: CustomTextField(
+                            child: _ReadOnlyInfoChip(
+                              icon: Icons.class_rounded,
                               label: 'Class',
-                              controller: _classCtrl,
-                              prefixIcon: Icons.class_rounded,
+                              value: [
+                                _className,
+                                _section,
+                              ].where((s) => s.isNotEmpty).join(' – ').let(
+                                  (s) => s.isEmpty ? 'Not assigned' : s),
+                              color: roleColor,
                             ),
                           ),
                         ],
@@ -298,18 +360,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                     if (role == 'teacher') ...[
                       const SizedBox(height: 28),
-                      _SectionLabel(label: 'Professional Information'),
+                      _SectionLabel(
+                          label: 'Professional Information', color: roleColor),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Subject is assigned by your school administrator',
+                        style: AppTextStyles.labelTiny
+                            .copyWith(color: AppColors.textHint),
+                      ),
                       const SizedBox(height: 14),
-                      CustomTextField(
+
+                      // Subject — LOCKED, same pattern as student Roll No / Class.
+                      _ReadOnlyInfoChip(
+                        icon: Icons.subject_rounded,
                         label: 'Subject',
-                        controller: _subjectCtrl,
-                        prefixIcon: Icons.subject_rounded,
+                        value: _subjectDisplay.isEmpty
+                            ? 'Not set'
+                            : _subjectDisplay,
+                        color: roleColor,
                       ),
                       const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Qualification',
-                        controller: _qualificationCtrl,
-                        prefixIcon: Icons.school_outlined,
+
+                      // Qualification — editable, but constrained to a
+                      // fixed dropdown instead of free text.
+                      _QualificationDropdown(
+                        value: _selectedQualification,
+                        color: roleColor,
+                        onChanged: (v) =>
+                            setState(() => _selectedQualification = v),
                       ),
                     ],
 
@@ -463,10 +541,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper extension (avoids extra import just for a one-liner)
+// ─────────────────────────────────────────────────────────────────────────────
+extension _Let<T> on T {
+  R let<R>(R Function(T) block) => block(this);
+}
+
 // ── Section label ─────────────────────────────────────────────────────────────
 class _SectionLabel extends StatelessWidget {
   final String label;
-  const _SectionLabel({required this.label});
+  final Color color;
+  const _SectionLabel({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -476,12 +562,152 @@ class _SectionLabel extends StatelessWidget {
           width: 4,
           height: 16,
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            color: color,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 10),
         Text(label, style: AppTextStyles.sectionTitle),
+      ],
+    );
+  }
+}
+
+// ── Read-only academic info chip ──────────────────────────────────────────────
+//
+// Replaces the previously-editable Roll No / Class CustomTextFields for
+// students. Visually distinct from an input (locked icon, no border/fill
+// that implies tappability) so it reads as "this is information", not
+// "this is a field you forgot to fill in".
+class _ReadOnlyInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ReadOnlyInfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: color.withOpacity(0.8)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.labelTiny.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(Icons.lock_outline_rounded,
+                  size: 13, color: AppColors.textHint),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: AppTextStyles.bodyMediumBold.copyWith(
+              color: AppColors.textPrimary,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Qualification dropdown ────────────────────────────────────────────────────
+//
+// Same purpose as ClassDropdownField / ClassMultiSelectField elsewhere in
+// the app: replaces a free-text field for a value that should only ever
+// be one of a known fixed set (AppQualifications.all), so it can't drift
+// out of sync with whatever AddTeacherScreen / admin tooling expects.
+class _QualificationDropdown extends StatelessWidget {
+  final String? value;
+  final Color color;
+  final ValueChanged<String?> onChanged;
+
+  const _QualificationDropdown({
+    required this.value,
+    required this.color,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Qualification',
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppColors.background,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.divider),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.divider),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: color, width: 2),
+            ),
+          ),
+          hint: const Text(
+            'Select qualification',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              color: AppColors.textHint,
+            ),
+          ),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppColors.textSecondary),
+          borderRadius: BorderRadius.circular(14),
+          items: AppQualifications.all
+              .map((q) => DropdownMenuItem(
+                    value: q,
+                    child: Text(q,
+                        style: const TextStyle(
+                            fontFamily: 'Poppins', fontSize: 14)),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        ),
       ],
     );
   }
