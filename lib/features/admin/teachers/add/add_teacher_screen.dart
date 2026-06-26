@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/notification_helper.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../../../core/widgets/custom_button.dart';
 import '../../../../../core/widgets/custom_text_field.dart';
@@ -24,13 +26,8 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   final _phoneCtrl = TextEditingController();
 
   List<String> _selectedClasses = [];
-
-  // Multi-select subjects (replaces free-text _subjectCtrl)
   List<String> _selectedSubjects = [];
-
-  // Single-select qualification (replaces free-text _qualificationCtrl)
   String? _selectedQualification;
-
   bool _loading = false;
 
   @override
@@ -67,15 +64,16 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
 
     setState(() => _loading = true);
 
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+
     final error = await ref.read(authProvider.notifier).adminCreateUser(
-          name: _nameCtrl.text.trim(),
-          email: _emailCtrl.text.trim(),
+          name: name,
+          email: email,
           password: _passwordCtrl.text,
           role: 'teacher',
           extraData: {
             'phone': _phoneCtrl.text.trim(),
-            // Stored as an array so Timetable can query:
-            //   .where('subjects', arrayContains: selectedSubject)
             'subjects': _selectedSubjects,
             'qualification': _selectedQualification,
             'classes': _selectedClasses,
@@ -92,9 +90,27 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
       return;
     }
 
+    // ── Send welcome notification to the new teacher ─────────────────────
+    // Look up the uid that was just created via the teachers collection.
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('teachers')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        await AppNotifications.onTeacherAdded(
+          teacherUid: snap.docs.first.id,
+          teacherName: name,
+        );
+      }
+    } catch (_) {
+      // Non-fatal — account was created; notification is best-effort.
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${_nameCtrl.text.trim()} has been added successfully.'),
+        content: Text('$name has been added successfully.'),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -124,15 +140,15 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Info banner ──────────────────────────────────────────
+              // Info banner
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
                   color: AppColors.teacherColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: AppColors.teacherColor.withOpacity(0.2)),
+                  border: Border.all(
+                      color: AppColors.teacherColor.withOpacity(0.2)),
                 ),
                 child: const Row(
                   children: [
@@ -153,7 +169,6 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
                 ),
               ),
 
-              // ── Basic fields ─────────────────────────────────────────
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,
@@ -197,21 +212,21 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ── Qualification dropdown ────────────────────────────────
+              // Qualification
               _QualificationDropdown(
                 value: _selectedQualification,
                 onChanged: (v) => setState(() => _selectedQualification = v),
               ),
               const SizedBox(height: 16),
 
-              // ── Subject multi-select ──────────────────────────────────
+              // Subjects
               _SubjectMultiSelect(
                 selected: _selectedSubjects,
                 onChanged: (v) => setState(() => _selectedSubjects = v),
               ),
               const SizedBox(height: 16),
 
-              // ── Class multi-select ────────────────────────────────────
+              // Classes
               ClassMultiSelectField(
                 selected: _selectedClasses,
                 onChanged: (v) => setState(() => _selectedClasses = v),
@@ -232,9 +247,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Qualification dropdown  (single-select)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Qualification dropdown ─────────────────────────────────────────────────────
 class _QualificationDropdown extends StatelessWidget {
   final String? value;
   final ValueChanged<String?> onChanged;
@@ -294,9 +307,7 @@ class _QualificationDropdown extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Subject multi-select chip picker  (all subjects, teacher level)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Subject multi-select ───────────────────────────────────────────────────────
 class _SubjectMultiSelect extends StatelessWidget {
   final List<String> selected;
   final ValueChanged<List<String>> onChanged;
@@ -345,11 +356,12 @@ class _SubjectMultiSelect extends StatelessWidget {
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
-                    color:
-                        isSelected ? AppColors.teacherColor : AppColors.surface,
+                    color: isSelected
+                        ? AppColors.teacherColor
+                        : AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
@@ -371,8 +383,9 @@ class _SubjectMultiSelect extends StatelessWidget {
                           fontFamily: 'Poppins',
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color:
-                              isSelected ? Colors.white : AppColors.textPrimary,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textPrimary,
                         ),
                       ),
                     ],
