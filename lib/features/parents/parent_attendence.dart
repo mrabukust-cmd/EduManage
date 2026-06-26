@@ -7,11 +7,6 @@ import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
-// FIX: The original code had a bug where the inner StreamBuilder for attendance
-// would fire before the parent_children query completed, causing an empty
-// studentId to be passed which returned no results. The fix uses a single
-// FutureBuilder to first fetch the studentId, then passes it directly.
-
 class ParentAttendanceScreen extends ConsumerWidget {
   const ParentAttendanceScreen({super.key});
 
@@ -38,8 +33,6 @@ class ParentAttendanceScreen extends ConsumerWidget {
   }
 }
 
-// Separate StatefulWidget to manage state cleanly and avoid nested
-// StreamBuilder issues that caused data to flash and disappear.
 class _ParentAttendanceBody extends StatefulWidget {
   final String parentUid;
   const _ParentAttendanceBody({required this.parentUid});
@@ -58,8 +51,6 @@ class _ParentAttendanceBodyState extends State<_ParentAttendanceBody> {
     _loadStudentId();
   }
 
-  // FIX: Fetch studentId once via Future (not Stream) so it doesn't
-  // re-trigger the inner attendance StreamBuilder on every rebuild.
   Future<void> _loadStudentId() async {
     try {
       final snap = await FirebaseFirestore.instance
@@ -107,34 +98,65 @@ class _ParentAttendanceBodyState extends State<_ParentAttendanceBody> {
   }
 }
 
-class _AttendanceForStudent extends StatelessWidget {
+// FIX: Student name is now fetched once via FutureBuilder instead of
+// being wrapped in a StreamBuilder. The old pattern caused the inner
+// attendance StreamBuilder to reset to ConnectionState.waiting every
+// time the outer student-doc stream re-emitted (e.g. on reconnect),
+// producing the "flash then disappear" effect. A FutureBuilder reads
+// the doc once and never re-triggers the attendance stream.
+class _AttendanceForStudent extends StatefulWidget {
   final String studentId;
   const _AttendanceForStudent({required this.studentId});
 
   @override
+  State<_AttendanceForStudent> createState() => _AttendanceForStudentState();
+}
+
+class _AttendanceForStudentState extends State<_AttendanceForStudent> {
+  late Future<String> _studentNameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _studentNameFuture = _fetchStudentName();
+  }
+
+  Future<String> _fetchStudentName() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('students')
+        .doc(widget.studentId)
+        .get();
+    return (doc.data()?['name'] as String?) ?? 'Child';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('students')
-          .doc(studentId)
-          .snapshots(),
-      builder: (context, studentSnap) {
-        final studentData =
-            studentSnap.data?.data() as Map<String, dynamic>?;
-        final studentName = studentData?['name'] as String? ?? 'Child';
+    return FutureBuilder<String>(
+      future: _studentNameFuture,
+      builder: (context, nameSnap) {
+        final studentName = nameSnap.data ?? 'Child';
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('attendance')
-              .where('studentId', isEqualTo: studentId)
-              .orderBy('date', descending: true)
+              .where('studentId', isEqualTo: widget.studentId)
               .snapshots(),
           builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
+            // Show spinner only on first load, not on subsequent emissions
+            if (snap.connectionState == ConnectionState.waiting &&
+                !snap.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final docs = snap.data?.docs ?? [];
+            // Sort in Dart — avoids the composite index requirement on
+            // (studentId + date) that causes Firestore to silently return
+            // empty results, then retry, producing the flash-disappear bug.
+            final docs = List.of(snap.data?.docs ?? [])
+              ..sort((a, b) {
+                final aDate = (a.data() as Map<String, dynamic>)['date'] as String? ?? '';
+                final bDate = (b.data() as Map<String, dynamic>)['date'] as String? ?? '';
+                return bDate.compareTo(aDate); // descending
+              });
 
             if (docs.isEmpty) {
               return Center(
