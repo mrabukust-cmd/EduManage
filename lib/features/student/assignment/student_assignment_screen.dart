@@ -6,14 +6,14 @@ import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
-
+ 
 class StudentAssignmentsScreen extends ConsumerWidget {
   const StudentAssignmentsScreen({super.key});
-
+ 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = ref.watch(authProvider).user?.uid;
-
+ 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -29,32 +29,57 @@ class StudentAssignmentsScreen extends ConsumerWidget {
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
           : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('students').doc(uid).snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('students')
+                  .doc(uid)
+                  .snapshots(),
               builder: (context, studentSnap) {
                 if (studentSnap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final studentData = studentSnap.data?.data() as Map<String, dynamic>?;
-                final className = studentData?['class'] as String?;
-
-                if (className == null || className.isEmpty) {
+ 
+                final studentData =
+                    studentSnap.data?.data() as Map<String, dynamic>?;
+                final className =
+                    studentData?['class'] as String?;
+ 
+                if (className == null || className.trim().isEmpty) {
                   return Center(
-                    child: Text('No class assigned yet.',
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                    child: Text(
+                      'No class assigned yet.',
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textSecondary),
+                    ),
                   );
                 }
-
+ 
+                // FIX: removed .orderBy('dueDate') — causes Firestore to
+                // silently drop docs or error when any doc has null dueDate,
+                // which made the list flash briefly then disappear.
+                // Sorting is now done in Dart after the data arrives.
                 return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('assignments')
-                      .where('className', isEqualTo: className)
-                      .orderBy('dueDate')
+                      .where('className', isEqualTo: className.trim())
                       .snapshots(),
                   builder: (context, snap) {
                     if (snap.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (!snap.hasData || snap.data!.docs.isEmpty) {
+ 
+                    if (snap.hasError) {
+                      return Center(
+                        child: Text(
+                          'Could not load assignments.',
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textSecondary),
+                        ),
+                      );
+                    }
+ 
+                    final docs = snap.data?.docs ?? [];
+ 
+                    if (docs.isEmpty) {
                       return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -65,23 +90,40 @@ class StudentAssignmentsScreen extends ConsumerWidget {
                             Text(
                               'No assignments right now.\nCheck back later!',
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.bodyMedium
-                                  .copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.textSecondary),
                             ),
                           ],
                         ),
                       );
                     }
-
-                    final docs = snap.data!.docs;
+ 
+                    // Sort by dueDate ascending in Dart; nulls go last
+                    final sorted = List.of(docs)
+                      ..sort((a, b) {
+                        final aTs =
+                            (a.data() as Map<String, dynamic>)['dueDate']
+                                as Timestamp?;
+                        final bTs =
+                            (b.data() as Map<String, dynamic>)['dueDate']
+                                as Timestamp?;
+                        if (aTs == null && bTs == null) return 0;
+                        if (aTs == null) return 1;
+                        if (bTs == null) return -1;
+                        return aTs.compareTo(bTs);
+                      });
+ 
                     return ListView.separated(
                       padding: const EdgeInsets.all(20),
-                      itemCount: docs.length,
+                      itemCount: sorted.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, i) {
-                        final data = docs[i].data() as Map<String, dynamic>;
-                        final dueDate = (data['dueDate'] as Timestamp?)?.toDate();
-                        final overdue = dueDate != null && dueDate.isBefore(DateTime.now());
+                        final data =
+                            sorted[i].data() as Map<String, dynamic>;
+                        final dueDate =
+                            (data['dueDate'] as Timestamp?)?.toDate();
+                        final overdue = dueDate != null &&
+                            dueDate.isBefore(DateTime.now());
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -89,7 +131,8 @@ class StudentAssignmentsScreen extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: AppColors.cardShadow,
                             border: overdue
-                                ? Border.all(color: AppColors.danger.withOpacity(0.4))
+                                ? Border.all(
+                                    color: AppColors.danger.withOpacity(0.4))
                                 : null,
                           ),
                           child: Column(
@@ -98,14 +141,15 @@ class StudentAssignmentsScreen extends ConsumerWidget {
                               Row(
                                 children: [
                                   Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.studentColor.withOpacity(0.1),
+                                      color: AppColors.studentColor
+                                          .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
-                                      data['subject'] ?? '',
+                                      data['subject'] as String? ?? '',
                                       style: AppTextStyles.labelTiny.copyWith(
                                           color: AppColors.studentColor,
                                           fontWeight: FontWeight.w700),
@@ -121,15 +165,24 @@ class StudentAssignmentsScreen extends ConsumerWidget {
                                             : AppColors.textSecondary,
                                         fontWeight: FontWeight.w600,
                                       ),
+                                    )
+                                  else
+                                    Text(
+                                      'No due date',
+                                      style: AppTextStyles.labelTiny.copyWith(
+                                          color: AppColors.textHint),
                                     ),
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              Text(data['title'] ?? '', style: AppTextStyles.bodyMediumBold),
-                              if ((data['description'] ?? '').toString().isNotEmpty) ...[
+                              Text(data['title'] as String? ?? '',
+                                  style: AppTextStyles.bodyMediumBold),
+                              if ((data['description'] ?? '')
+                                  .toString()
+                                  .isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(
-                                  data['description'],
+                                  data['description'] as String,
                                   style: AppTextStyles.labelSmall,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

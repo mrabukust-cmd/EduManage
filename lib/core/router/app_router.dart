@@ -21,6 +21,7 @@ import 'package:school_management_system/features/shared/setting/change_password
 import 'package:school_management_system/features/student/my_attendence.dart/student_attendance_screen.dart';
 import 'package:school_management_system/features/student/notices/student_notices_screen.dart';
 import 'package:school_management_system/features/student/results/student_results_screen.dart';
+import 'package:school_management_system/features/student/timetable/student_timetable.dart';
 import 'package:school_management_system/features/teacher/attendance/class_attendence.dart';
 import 'package:school_management_system/features/teacher/classes/teacher_classes_screen.dart';
 import 'package:school_management_system/features/auth/login_screen.dart';
@@ -231,7 +232,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(),
+            builder: (_, state) => const StudentTimetableScreen(),
           ),
           GoRoute(
             path: 'messages',
@@ -253,7 +254,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(),
+            builder: (_, __) => const StudentTimetableScreen(),
           ),
           GoRoute(
             path: 'assignments',
@@ -285,7 +286,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'timetable',
-            builder: (_, __) => const TimetableScreen(),
+            builder: (_, __) => const StudentTimetableScreen(),
           ),
           GoRoute(
             path: 'attendance',
