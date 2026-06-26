@@ -21,9 +21,7 @@ class ParentHomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(
-              child: _ParentHeader(userName: parentName),
-            ),
+            SliverToBoxAdapter(child: _ParentHeader(userName: parentName)),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
             // Children cards
@@ -46,19 +44,20 @@ class ParentHomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 20),
-                          child: Text('My Children',
-                              style: AppTextStyles.sectionTitle),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            'My Children',
+                            style: AppTextStyles.sectionTitle,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         ...children.map((doc) {
-                          final data =
-                              doc.data() as Map<String, dynamic>;
-                          final studentId =
-                              data['studentId'] as String? ?? '';
+                          final data = doc.data() as Map<String, dynamic>;
+                          final studentId = data['studentId'] as String? ?? '';
                           return _ChildCard(
-                              studentId: studentId, docId: doc.id);
+                            studentId: studentId,
+                            docId: doc.id,
+                          );
                         }),
                       ],
                     );
@@ -72,8 +71,7 @@ class ParentHomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text('Quick Access',
-                    style: AppTextStyles.sectionTitle),
+                child: Text('Quick Access', style: AppTextStyles.sectionTitle),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 14)),
@@ -92,8 +90,10 @@ class ParentHomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text('Latest Notices',
-                    style: AppTextStyles.sectionTitle),
+                child: Text(
+                  'Latest Notices',
+                  style: AppTextStyles.sectionTitle,
+                ),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -138,11 +138,10 @@ class ParentHomeScreen extends ConsumerWidget {
           icon: Icons.schedule_rounded,
           label: 'Timetable',
           color: AppColors.warning,
-          onTap: () => context.push(
-            '/parent/home/timetable',
-            extra: childClass,
-          ),
+          onTap: () =>
+              context.push('/parent/home/timetable', extra: childClass),
         ),
+      
       ],
     );
   }
@@ -155,8 +154,7 @@ class _QuickActionsWithChild extends StatefulWidget {
   const _QuickActionsWithChild({required this.parentUid});
 
   @override
-  State<_QuickActionsWithChild> createState() =>
-      _QuickActionsWithChildState();
+  State<_QuickActionsWithChild> createState() => _QuickActionsWithChildState();
 }
 
 class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
@@ -178,8 +176,7 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
 
       if (snap.docs.isEmpty) return;
 
-      final studentId =
-          snap.docs.first.data()['studentId'] as String? ?? '';
+      final studentId = snap.docs.first.data()['studentId'] as String? ?? '';
       if (studentId.isEmpty) return;
 
       final studentDoc = await FirebaseFirestore.instance
@@ -189,8 +186,7 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
 
       if (mounted) {
         setState(() {
-          _childClass =
-              studentDoc.data()?['class'] as String? ?? '';
+          _childClass = studentDoc.data()?['class'] as String? ?? '';
         });
       }
     } catch (_) {}
@@ -231,11 +227,15 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
             icon: Icons.schedule_rounded,
             label: 'Timetable',
             color: AppColors.warning,
-            onTap: () => context.push(
-              '/parent/home/timetable',
-              extra: _childClass,
-            ),
+            onTap: () =>
+                context.push('/parent/home/timetable', extra: _childClass),
           ),
+            _QuickCard(
+          icon: Icons.assignment_rounded,
+          label: "Assignments",
+          color: AppColors.accent,
+          onTap: () => context.push('/parent/home/assignments'),
+        ),
         ],
       ),
     );
@@ -265,33 +265,43 @@ class _ParentHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Welcome,',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: Colors.white70)),
+                Text(
+                  'Welcome,',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(userName,
-                    style: AppTextStyles.headingLarge
-                        .copyWith(color: Colors.white)),
+                Text(
+                  userName,
+                  style: AppTextStyles.headingLarge.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(DateFormat('EEEE, MMMM d').format(DateTime.now()),
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: Colors.white60)),
+                Text(
+                  DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: Colors.white60,
+                  ),
+                ),
               ],
             ),
           ),
           IconButton(
-            onPressed: () =>
-                context.push('/parent/notifications'),
-            icon: const Icon(Icons.notifications_rounded,
-                color: Colors.white, size: 28),
+            onPressed: () => context.push('/parent/notifications'),
+            icon: const Icon(
+              Icons.notifications_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
           ),
           GestureDetector(
             onTap: () => context.push('/parent/home/profile'),
             child: const CircleAvatar(
               radius: 22,
               backgroundColor: Colors.white24,
-              child:
-                  Icon(Icons.person_rounded, color: Colors.white, size: 24),
+              child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
             ),
           ),
         ],
@@ -335,8 +345,7 @@ class _ChildCard extends StatelessWidget {
               if ((d['status'] as String?) == 'present') present++;
             }
             final total = attDocs.length;
-            final pct =
-                total > 0 ? (present / total * 100).round() : 0;
+            final pct = total > 0 ? (present / total * 100).round() : 0;
 
             return Container(
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -370,29 +379,40 @@ class _ChildCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name,
-                            style: AppTextStyles.bodyMediumBold
-                                .copyWith(color: Colors.white)),
+                        Text(
+                          name,
+                          style: AppTextStyles.bodyMediumBold.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('$className • Roll: $rollNo',
-                            style: AppTextStyles.labelSmall
-                                .copyWith(color: Colors.white70)),
+                        Text(
+                          '$className • Roll: $rollNo',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: Colors.white70,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('$pct%',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          )),
-                      Text('Attendance',
-                          style: AppTextStyles.labelTiny
-                              .copyWith(color: Colors.white60)),
+                      Text(
+                        '$pct%',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Attendance',
+                        style: AppTextStyles.labelTiny.copyWith(
+                          color: Colors.white60,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -420,17 +440,20 @@ class _NoChildLinked extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const Icon(Icons.family_restroom_rounded,
-                size: 48, color: AppColors.textHint),
+            const Icon(
+              Icons.family_restroom_rounded,
+              size: 48,
+              color: AppColors.textHint,
+            ),
             const SizedBox(height: 12),
-            Text('No child linked yet',
-                style: AppTextStyles.bodyMediumBold),
+            Text('No child linked yet', style: AppTextStyles.bodyMediumBold),
             const SizedBox(height: 6),
             Text(
               'Contact the school admin to link your child\'s account.',
               textAlign: TextAlign.center,
-              style: AppTextStyles.labelSmall
-                  .copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -468,14 +491,19 @@ class _QuickCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: color.withOpacity(0.12), shape: BoxShape.circle),
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(label,
-                  style: AppTextStyles.labelSmall
-                      .copyWith(fontWeight: FontWeight.w600)),
+              child: Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
@@ -497,7 +525,7 @@ class _RecentNotices extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('notices')          // Only 'notices' collection
+          .collection('notices') // Only 'notices' collection
           .orderBy('createdAt', descending: true)
           .limit(5)
           .snapshots(),
@@ -515,7 +543,8 @@ class _RecentNotices extends StatelessWidget {
         final noticeOnly = docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final hasTitle = (data['title'] as String? ?? '').isNotEmpty;
-          final isNotAttendance = data['studentId'] == null &&
+          final isNotAttendance =
+              data['studentId'] == null &&
               data['marksObtained'] == null &&
               data['status'] == null;
           return hasTitle && isNotAttendance;
@@ -524,9 +553,12 @@ class _RecentNotices extends StatelessWidget {
         if (noticeOnly.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text('No notices yet.',
-                style: AppTextStyles.labelSmall
-                    .copyWith(color: AppColors.textHint)),
+            child: Text(
+              'No notices yet.',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textHint,
+              ),
+            ),
           );
         }
 
@@ -567,33 +599,44 @@ class _RecentNotices extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20)),
-                        child: Text(category,
-                            style: AppTextStyles.labelTiny.copyWith(
-                                color: color,
-                                fontWeight: FontWeight.w700)),
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          category,
+                          style: AppTextStyles.labelTiny.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                       const Spacer(),
                       Text(
                         data['createdAt'] != null
                             ? DateFormat('MMM d').format(
-                                (data['createdAt'] as Timestamp).toDate())
+                                (data['createdAt'] as Timestamp).toDate(),
+                              )
                             : '',
                         style: AppTextStyles.labelTiny,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(data['title'] ?? '',
-                      style: AppTextStyles.bodyMediumBold),
+                  Text(
+                    data['title'] ?? '',
+                    style: AppTextStyles.bodyMediumBold,
+                  ),
                   const SizedBox(height: 4),
-                  Text(data['body'] ?? '',
-                      style: AppTextStyles.labelSmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    data['body'] ?? '',
+                    style: AppTextStyles.labelSmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             );
@@ -638,16 +681,23 @@ class _ParentBottomNav extends StatelessWidget {
         }
       },
       items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
         BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded), label: 'Home'),
+          icon: Icon(Icons.how_to_reg_rounded),
+          label: 'Attendance',
+        ),
         BottomNavigationBarItem(
-            icon: Icon(Icons.how_to_reg_rounded), label: 'Attendance'),
+          icon: Icon(Icons.bar_chart_rounded),
+          label: 'Results',
+        ),
         BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_rounded), label: 'Results'),
+          icon: Icon(Icons.campaign_rounded),
+          label: 'Notices',
+        ),
         BottomNavigationBarItem(
-            icon: Icon(Icons.campaign_rounded), label: 'Notices'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded), label: 'Profile'),
+          icon: Icon(Icons.person_rounded),
+          label: 'Profile',
+        ),
       ],
     );
   }

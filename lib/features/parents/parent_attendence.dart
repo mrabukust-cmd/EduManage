@@ -23,47 +23,73 @@ class ParentAttendanceScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text("Child's Attendance",
+        title: Text("Children's Attendance",
             style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
-          : _ParentAttendanceBody(parentUid: uid),
+          : _MultiChildAttendanceBody(parentUid: uid),
     );
   }
 }
 
-class _ParentAttendanceBody extends StatefulWidget {
+// ── Multi-child body ──────────────────────────────────────────────────────────
+class _MultiChildAttendanceBody extends StatefulWidget {
   final String parentUid;
-  const _ParentAttendanceBody({required this.parentUid});
+  const _MultiChildAttendanceBody({required this.parentUid});
 
   @override
-  State<_ParentAttendanceBody> createState() => _ParentAttendanceBodyState();
+  State<_MultiChildAttendanceBody> createState() =>
+      _MultiChildAttendanceBodyState();
 }
 
-class _ParentAttendanceBodyState extends State<_ParentAttendanceBody> {
-  String? _studentId;
+class _MultiChildAttendanceBodyState
+    extends State<_MultiChildAttendanceBody> {
+  List<Map<String, dynamic>> _children = [];
   bool _loading = true;
+
+  // Which child is currently expanded/selected (-1 = none)
+  int _selectedIndex = -1;
 
   @override
   void initState() {
     super.initState();
-    _loadStudentId();
+    _loadChildren();
   }
 
-  Future<void> _loadStudentId() async {
+  Future<void> _loadChildren() async {
     try {
       final snap = await FirebaseFirestore.instance
           .collection('parent_children')
           .where('parentId', isEqualTo: widget.parentUid)
-          .limit(1)
           .get();
+
+      final children = <Map<String, dynamic>>[];
+
+      for (final doc in snap.docs) {
+        final studentId = doc.data()['studentId'] as String? ?? '';
+        if (studentId.isEmpty) continue;
+
+        final studentDoc = await FirebaseFirestore.instance
+            .collection('students')
+            .doc(studentId)
+            .get();
+
+        if (studentDoc.exists) {
+          children.add({
+            'studentId': studentId,
+            'name': studentDoc.data()?['name'] as String? ?? 'Student',
+            'class': studentDoc.data()?['class'] as String? ?? '',
+            'rollNo': studentDoc.data()?['rollNo'] as String? ?? '',
+          });
+        }
+      }
 
       if (mounted) {
         setState(() {
-          _studentId = snap.docs.isNotEmpty
-              ? (snap.docs.first.data()['studentId'] as String? ?? '')
-              : null;
+          _children = children;
+          // Auto-select first child if only one
+          _selectedIndex = children.length == 1 ? 0 : -1;
           _loading = false;
         });
       }
@@ -78,7 +104,7 @@ class _ParentAttendanceBodyState extends State<_ParentAttendanceBody> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_studentId == null || _studentId!.isEmpty) {
+    if (_children.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -86,139 +112,228 @@ class _ParentAttendanceBodyState extends State<_ParentAttendanceBody> {
             const Icon(Icons.family_restroom_rounded,
                 size: 64, color: AppColors.textHint),
             const SizedBox(height: 16),
-            Text('No child linked to your account.',
+            Text('No children linked to your account.',
                 style: AppTextStyles.bodyMedium
                     .copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text('Contact the school admin to link your child.',
+                style: AppTextStyles.labelSmall
+                    .copyWith(color: AppColors.textHint)),
           ],
         ),
       );
     }
 
-    return _AttendanceForStudent(studentId: _studentId!);
+    // Single child → go straight to detail view
+    if (_children.length == 1) {
+      return _AttendanceDetail(
+        studentId: _children[0]['studentId'] as String,
+        studentName: _children[0]['name'] as String,
+        className: _children[0]['class'] as String,
+      );
+    }
+
+    // Multiple children → show selector cards + detail below
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text('Select a child to view attendance',
+            style: AppTextStyles.sectionTitle),
+        const SizedBox(height: 12),
+
+        // ── Child selector cards ──────────────────────────────
+        ..._children.asMap().entries.map((entry) {
+          final i = entry.key;
+          final child = entry.value;
+          final isSelected = _selectedIndex == i;
+
+          return GestureDetector(
+            onTap: () => setState(() =>
+                _selectedIndex = isSelected ? -1 : i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [AppColors.success, Color(0xFF16A34A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isSelected ? null : AppColors.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppColors.cardShadow,
+                border: isSelected
+                    ? null
+                    : Border.all(color: AppColors.divider),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: isSelected
+                        ? Colors.white24
+                        : AppColors.success.withOpacity(0.12),
+                    child: Text(
+                      (child['name'] as String).isNotEmpty
+                          ? (child['name'] as String)[0].toUpperCase()
+                          : 'S',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.success,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          child['name'] as String,
+                          style: AppTextStyles.bodyMediumBold.copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${child['class']}  •  Roll: ${child['rollNo']}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: isSelected
+                                ? Colors.white70
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isSelected
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: isSelected
+                        ? Colors.white
+                        : AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+
+        // ── Detail section for selected child ─────────────────
+        if (_selectedIndex >= 0 &&
+            _selectedIndex < _children.length) ...[
+          const SizedBox(height: 8),
+          _AttendanceDetail(
+            studentId:
+                _children[_selectedIndex]['studentId'] as String,
+            studentName:
+                _children[_selectedIndex]['name'] as String,
+            className:
+                _children[_selectedIndex]['class'] as String,
+          ),
+        ],
+      ],
+    );
   }
 }
 
-// FIX: Student name is now fetched once via FutureBuilder instead of
-// being wrapped in a StreamBuilder. The old pattern caused the inner
-// attendance StreamBuilder to reset to ConnectionState.waiting every
-// time the outer student-doc stream re-emitted (e.g. on reconnect),
-// producing the "flash then disappear" effect. A FutureBuilder reads
-// the doc once and never re-triggers the attendance stream.
-class _AttendanceForStudent extends StatefulWidget {
+// ── Attendance detail for one child ──────────────────────────────────────────
+class _AttendanceDetail extends StatelessWidget {
   final String studentId;
-  const _AttendanceForStudent({required this.studentId});
+  final String studentName;
+  final String className;
 
-  @override
-  State<_AttendanceForStudent> createState() => _AttendanceForStudentState();
-}
-
-class _AttendanceForStudentState extends State<_AttendanceForStudent> {
-  late Future<String> _studentNameFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _studentNameFuture = _fetchStudentName();
-  }
-
-  Future<String> _fetchStudentName() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('students')
-        .doc(widget.studentId)
-        .get();
-    return (doc.data()?['name'] as String?) ?? 'Child';
-  }
+  const _AttendanceDetail({
+    required this.studentId,
+    required this.studentName,
+    required this.className,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _studentNameFuture,
-      builder: (context, nameSnap) {
-        final studentName = nameSnap.data ?? 'Child';
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('attendance')
+          .where('studentId', isEqualTo: studentId)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting &&
+            !snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('attendance')
-              .where('studentId', isEqualTo: widget.studentId)
-              .snapshots(),
-          builder: (context, snap) {
-            // Show spinner only on first load, not on subsequent emissions
-            if (snap.connectionState == ConnectionState.waiting &&
-                !snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        // Sort descending by date in Dart — avoids composite index
+        final docs = List.of(snap.data?.docs ?? [])
+          ..sort((a, b) {
+            final aDate =
+                (a.data() as Map<String, dynamic>)['date'] as String? ??
+                    '';
+            final bDate =
+                (b.data() as Map<String, dynamic>)['date'] as String? ??
+                    '';
+            return bDate.compareTo(aDate);
+          });
 
-            // Sort in Dart — avoids the composite index requirement on
-            // (studentId + date) that causes Firestore to silently return
-            // empty results, then retry, producing the flash-disappear bug.
-            final docs = List.of(snap.data?.docs ?? [])
-              ..sort((a, b) {
-                final aDate = (a.data() as Map<String, dynamic>)['date'] as String? ?? '';
-                final bDate = (b.data() as Map<String, dynamic>)['date'] as String? ?? '';
-                return bDate.compareTo(aDate); // descending
-              });
-
-            if (docs.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.event_note_rounded,
-                        size: 64, color: AppColors.textHint),
-                    const SizedBox(height: 16),
-                    Text('No attendance records yet.',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textSecondary)),
-                  ],
-                ),
-              );
-            }
-
-            int present = 0, absent = 0, late = 0;
-            for (final doc in docs) {
-              final data = doc.data() as Map<String, dynamic>;
-              final status = data['status'] as String? ?? 'absent';
-              if (status == 'present') present++;
-              else if (status == 'absent') absent++;
-              else if (status == 'late') late++;
-            }
-            final total = docs.length;
-            final pct = total > 0 ? (present / total) : 0.0;
-
-            return ListView(
-              padding: const EdgeInsets.all(20),
+        if (docs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppColors.cardShadow,
+            ),
+            child: Column(
               children: [
-                // Student name card
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: AppColors.success.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person_rounded,
-                          color: AppColors.success),
-                      const SizedBox(width: 10),
-                      Text(studentName,
-                          style: AppTextStyles.bodyMediumBold
-                              .copyWith(color: AppColors.success)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const Icon(Icons.event_note_rounded,
+                    size: 48, color: AppColors.textHint),
+                const SizedBox(height: 12),
+                Text('No attendance records yet for $studentName.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textSecondary)),
+              ],
+            ),
+          );
+        }
 
-                // Summary card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBg,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: AppColors.cardShadow,
-                  ),
-                  child: Row(
+        int present = 0, absent = 0, late = 0;
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final status = data['status'] as String? ?? 'absent';
+          if (status == 'present') present++;
+          else if (status == 'absent') absent++;
+          else if (status == 'late') late++;
+        }
+        final total = docs.length;
+        final pct = total > 0 ? (present / total) : 0.0;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.cardBg,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: AppColors.cardShadow,
+              ),
+              child: Column(
+                children: [
+                  Row(
                     children: [
                       SizedBox(
                         width: 80,
@@ -249,6 +364,9 @@ class _AttendanceForStudentState extends State<_AttendanceForStudent> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Text('Attendance Overview',
+                                style: AppTextStyles.bodyMediumBold),
+                            const SizedBox(height: 10),
                             _StatRow(
                                 label: 'Present',
                                 value: '$present days',
@@ -270,118 +388,121 @@ class _AttendanceForStudentState extends State<_AttendanceForStudent> {
                       ),
                     ],
                   ),
+                  if (pct < 0.75) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppColors.danger.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded,
+                              color: AppColors.danger, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "$studentName's attendance is below 75%. "
+                              "Please ensure regular attendance.",
+                              style: AppTextStyles.labelSmall
+                                  .copyWith(color: AppColors.danger),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Attendance History',
+                style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 12),
+
+            // History list
+            ...docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final status = data['status'] as String? ?? 'absent';
+              final dateStr = data['date'] as String? ?? '';
+
+              final Color color;
+              final IconData icon;
+              switch (status) {
+                case 'present':
+                  color = AppColors.success;
+                  icon = Icons.check_circle_outline_rounded;
+                  break;
+                case 'late':
+                  color = AppColors.warning;
+                  icon = Icons.access_time_rounded;
+                  break;
+                default:
+                  color = AppColors.danger;
+                  icon = Icons.cancel_outlined;
+              }
+
+              String dayLabel = dateStr;
+              String weekday = '';
+              try {
+                final dt = DateTime.parse(dateStr);
+                dayLabel = DateFormat('d MMM yyyy').format(dt);
+                weekday = DateFormat('EEEE').format(dt);
+              } catch (_) {}
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: AppColors.cardShadow,
                 ),
-                const SizedBox(height: 24),
-
-                if (pct < 0.75)
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: AppColors.danger.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: AppColors.danger.withOpacity(0.3)),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          shape: BoxShape.circle),
+                      child: Icon(icon, color: color, size: 20),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded,
-                            color: AppColors.danger),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            "Your child's attendance is below 75%. "
-                            "Please ensure regular attendance.",
-                            style: AppTextStyles.labelSmall
-                                .copyWith(color: AppColors.danger),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(weekday,
+                              style: AppTextStyles.bodyMediumBold),
+                          Text(dayLabel,
+                              style: AppTextStyles.labelSmall),
+                        ],
+                      ),
                     ),
-                  ),
-
-                Text('Attendance History',
-                    style: AppTextStyles.sectionTitle),
-                const SizedBox(height: 12),
-
-                ...docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final status = data['status'] as String? ?? 'absent';
-                  final dateStr = data['date'] as String? ?? '';
-                  final Color color;
-                  final IconData icon;
-                  switch (status) {
-                    case 'present':
-                      color = AppColors.success;
-                      icon = Icons.check_circle_outline_rounded;
-                      break;
-                    case 'late':
-                      color = AppColors.warning;
-                      icon = Icons.access_time_rounded;
-                      break;
-                    default:
-                      color = AppColors.danger;
-                      icon = Icons.cancel_outlined;
-                  }
-
-                  String dayLabel = dateStr;
-                  String weekday = '';
-                  try {
-                    final dt = DateTime.parse(dateStr);
-                    dayLabel = DateFormat('d MMM yyyy').format(dt);
-                    weekday = DateFormat('EEEE').format(dt);
-                  } catch (_) {}
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBg,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: AppColors.cardShadow,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        status[0].toUpperCase() + status.substring(1),
+                        style: AppTextStyles.labelTiny.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w700),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
-                              shape: BoxShape.circle),
-                          child: Icon(icon, color: color, size: 20),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(weekday,
-                                  style: AppTextStyles.bodyMediumBold),
-                              Text(dayLabel,
-                                  style: AppTextStyles.labelSmall),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            status[0].toUpperCase() + status.substring(1),
-                            style: AppTextStyles.labelTiny.copyWith(
-                                color: color,
-                                fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            );
-          },
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 20),
+          ],
         );
       },
     );

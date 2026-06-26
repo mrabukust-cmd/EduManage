@@ -43,6 +43,7 @@ import 'package:school_management_system/features/shared/timetable/timetable_scr
 import 'package:school_management_system/features/parents/parent_home_screen.dart';
 import 'package:school_management_system/features/parents/parent_attendence.dart';
 import 'package:school_management_system/features/parents/parent_result.dart';
+import 'package:school_management_system/features/parents/parent_assignment.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 // ── Router Provider ───────────────────────────────────────────────────────────
@@ -118,22 +119,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // ── Auth ──────────────────────────────────────────────────────────────
-      GoRoute(
-        path: '/splash',
-        builder: (_, __) => const SplashScreen(),
-      ),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(
         path: '/onboarding',
         builder: (_, __) => const OnboardingScreen(),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (_, __) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/register',
-        builder: (_, __) => const RegisterScreen(),
-      ),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
 
       // ── Pending approval ──────────────────────────────────────────────────
       GoRoute(
@@ -162,10 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'teachers/add',
             builder: (_, __) => const AddTeacherScreen(),
           ),
-          GoRoute(
-            path: 'classes',
-            builder: (_, __) => const ClassesScreen(),
-          ),
+          GoRoute(path: 'classes', builder: (_, __) => const ClassesScreen()),
           GoRoute(
             path: 'fees',
             builder: (_, __) => const FeeManagementScreen(),
@@ -174,10 +163,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const NoticeBoardScreen(),
           ),
-          GoRoute(
-            path: 'reports',
-            builder: (_, __) => const ReportsScreen(),
-          ),
+          GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
           GoRoute(
             path: 'approvals',
             builder: (_, __) => const PendingApprovalsScreen(),
@@ -198,10 +184,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'timetable',
             builder: (_, __) => const TimetableScreen(),
           ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const ProfileScreen(),
-          ),
+          GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -231,10 +214,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'assignments',
             builder: (_, __) => const AssignmentsScreen(),
           ),
-          GoRoute(
-            path: 'grades',
-            builder: (_, __) => const GradesScreen(),
-          ),
+          GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
           GoRoute(
             path: 'timetable',
             builder: (_, state) => const StudentTimetableScreen(),
@@ -245,10 +225,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               body: Center(child: Text('Messages – Coming Soon')),
             ),
           ),
-          GoRoute(
-            path: 'profile',
-            builder: (_, __) => const ProfileScreen(),
-          ),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -277,10 +254,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const StudentNoticesScreen(),
           ),
-          GoRoute(
-            path: 'profile',
-            builder: (_, __) => const ProfileScreen(),
-          ),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
 
@@ -289,12 +263,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/parent/home',
         builder: (_, __) => const ParentHomeScreen(),
         routes: [
-      GoRoute(
-          path: 'timetable',
-          builder: (_, state) => StudentTimetableScreen(
-          fixedClassName: state.extra as String?,
-    ),
-  ),
+          GoRoute(
+            path: 'timetable',
+            builder: (_, state) =>
+                StudentTimetableScreen(fixedClassName: state.extra as String?),
+          ),
           GoRoute(
             path: 'attendance',
             builder: (_, __) => const ParentAttendanceScreen(),
@@ -307,9 +280,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const StudentNoticesScreen(),
           ),
+          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(
-            path: 'profile',
-            builder: (_, __) => const ProfileScreen(),
+            path: 'assignments',
+            builder: (_, __) => const ParentAssignmentsScreen(),
           ),
         ],
       ),
@@ -319,10 +293,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Shared ────────────────────────────────────────────────────────────
-      GoRoute(
-        path: '/profile',
-        builder: (_, __) => const ProfileScreen(),
-      ),
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
@@ -344,15 +315,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const NotificationSettingsScreen(),
       ),
       // FIX: replaced "Coming Soon" placeholder with a real screen.
-      GoRoute(
-        path: '/help',
-        builder: (_, __) => const HelpSupportScreen(),
-      ),
+      GoRoute(path: '/help', builder: (_, __) => const HelpSupportScreen()),
       // FIX: replaced "Coming Soon" placeholder with a real screen.
-      GoRoute(
-        path: '/about',
-        builder: (_, __) => const AboutAppScreen(),
-      ),
+      GoRoute(path: '/about', builder: (_, __) => const AboutAppScreen()),
       // New: school-management-specific legal screens, linked from
       // AboutAppScreen's "Legal" section (Privacy Policy / Terms of Service
       // rows previously just showed a "coming soon" SnackBar).

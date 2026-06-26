@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/data_helpers.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 class ParentResultsScreen extends ConsumerWidget {
@@ -22,36 +23,229 @@ class ParentResultsScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text("Child's Results",
+        title: Text("Children's Results",
             style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('parent_children')
-                  .where('parentId', isEqualTo: uid)
-                  .snapshots(),
-              builder: (context, snap) {
-                final children = snap.data?.docs ?? [];
-                if (children.isEmpty) {
-                  return Center(
-                    child: Text('No child linked.',
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                  );
-                }
-                final data = children.first.data() as Map<String, dynamic>;
-                final studentId = data['studentId'] as String? ?? '';
-                return _ResultsForStudent(studentId: studentId);
-              },
-            ),
+          : _MultiChildResultsBody(parentUid: uid),
     );
   }
 }
 
-class _ResultsForStudent extends StatelessWidget {
+// ── Multi-child body ──────────────────────────────────────────────────────────
+class _MultiChildResultsBody extends StatefulWidget {
+  final String parentUid;
+  const _MultiChildResultsBody({required this.parentUid});
+
+  @override
+  State<_MultiChildResultsBody> createState() =>
+      _MultiChildResultsBodyState();
+}
+
+class _MultiChildResultsBodyState extends State<_MultiChildResultsBody> {
+  List<Map<String, dynamic>> _children = [];
+  bool _loading = true;
+  int _selectedIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChildren();
+  }
+
+  Future<void> _loadChildren() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('parent_children')
+          .where('parentId', isEqualTo: widget.parentUid)
+          .get();
+
+      final children = <Map<String, dynamic>>[];
+
+      for (final doc in snap.docs) {
+        final studentId = doc.data()['studentId'] as String? ?? '';
+        if (studentId.isEmpty) continue;
+
+        final studentDoc = await FirebaseFirestore.instance
+            .collection('students')
+            .doc(studentId)
+            .get();
+
+        if (studentDoc.exists) {
+          children.add({
+            'studentId': studentId,
+            'name': studentDoc.data()?['name'] as String? ?? 'Student',
+            'class': studentDoc.data()?['class'] as String? ?? '',
+            'rollNo': studentDoc.data()?['rollNo'] as String? ?? '',
+          });
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _children = children;
+          _selectedIndex = children.length == 1 ? 0 : -1;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_children.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.family_restroom_rounded,
+                size: 64, color: AppColors.textHint),
+            const SizedBox(height: 16),
+            Text('No children linked to your account.',
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text('Contact the school admin to link your child.',
+                style: AppTextStyles.labelSmall
+                    .copyWith(color: AppColors.textHint)),
+          ],
+        ),
+      );
+    }
+
+    // Single child → go straight to detail
+    if (_children.length == 1) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: _ResultsDetail(
+          studentId: _children[0]['studentId'] as String,
+          studentName: _children[0]['name'] as String,
+        ),
+      );
+    }
+
+    // Multiple children → selector cards + detail
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text('Select a child to view results',
+            style: AppTextStyles.sectionTitle),
+        const SizedBox(height: 12),
+
+        // ── Child selector cards ──────────────────────────────
+        ..._children.asMap().entries.map((entry) {
+          final i = entry.key;
+          final child = entry.value;
+          final isSelected = _selectedIndex == i;
+
+          return GestureDetector(
+            onTap: () => setState(
+                () => _selectedIndex = isSelected ? -1 : i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: isSelected ? AppColors.primaryGradient : null,
+                color: isSelected ? null : AppColors.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppColors.cardShadow,
+                border: isSelected
+                    ? null
+                    : Border.all(color: AppColors.divider),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: isSelected
+                        ? Colors.white24
+                        : AppColors.primary.withOpacity(0.12),
+                    child: Text(
+                      (child['name'] as String).isNotEmpty
+                          ? (child['name'] as String)[0].toUpperCase()
+                          : 'S',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          child['name'] as String,
+                          style: AppTextStyles.bodyMediumBold.copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${child['class']}  •  Roll: ${child['rollNo']}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: isSelected
+                                ? Colors.white70
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isSelected
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: isSelected
+                        ? Colors.white
+                        : AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+
+        // ── Detail for selected child ─────────────────────────
+        if (_selectedIndex >= 0 &&
+            _selectedIndex < _children.length) ...[
+          const SizedBox(height: 8),
+          _ResultsDetail(
+            studentId:
+                _children[_selectedIndex]['studentId'] as String,
+            studentName:
+                _children[_selectedIndex]['name'] as String,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Results detail for one child ──────────────────────────────────────────────
+class _ResultsDetail extends StatelessWidget {
   final String studentId;
-  const _ResultsForStudent({required this.studentId});
+  final String studentName;
+
+  const _ResultsDetail({
+    required this.studentId,
+    required this.studentName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -62,21 +256,33 @@ class _ResultsForStudent extends StatelessWidget {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+        if (snap.connectionState == ConnectionState.waiting &&
+            !snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final docs = snap.data?.docs ?? [];
 
         if (docs.isEmpty) {
-          return Center(
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppColors.cardShadow,
+            ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.bar_chart_rounded, size: 64, color: AppColors.textHint),
-                const SizedBox(height: 16),
-                Text('No results available yet.',
-                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                const Icon(Icons.bar_chart_rounded,
+                    size: 48, color: AppColors.textHint),
+                const SizedBox(height: 12),
+                Text('No results available yet for $studentName.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textSecondary)),
               ],
             ),
           );
@@ -94,6 +300,7 @@ class _ResultsForStudent extends StatelessWidget {
           }
         }
         final avg = count > 0 ? totalPct / count : 0.0;
+        final grade = DataHelpers.letterGrade(avg);
 
         // Group by exam
         final Map<String, List<QueryDocumentSnapshot>> grouped = {};
@@ -103,8 +310,8 @@ class _ResultsForStudent extends StatelessWidget {
           grouped.putIfAbsent(exam, () => []).add(doc);
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Overall card
             Container(
@@ -126,9 +333,10 @@ class _ResultsForStudent extends StatelessWidget {
                           value: avg / 100,
                           strokeWidth: 7,
                           backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                          valueColor:
+                              const AlwaysStoppedAnimation(Colors.white),
                         ),
-                        Text(_letterGrade(avg),
+                        Text(grade,
                             style: const TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 22,
@@ -144,13 +352,17 @@ class _ResultsForStudent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Overall Performance',
-                            style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
+                            style: AppTextStyles.bodyMediumBold
+                                .copyWith(color: Colors.white)),
                         const SizedBox(height: 6),
-                        Text('Average: ${avg.toStringAsFixed(1)}%',
-                            style: AppTextStyles.labelMedium.copyWith(color: Colors.white70)),
+                        Text(
+                            'Average: ${avg.toStringAsFixed(1)}%',
+                            style: AppTextStyles.labelMedium
+                                .copyWith(color: Colors.white70)),
                         const SizedBox(height: 4),
                         Text('Total subjects: $count',
-                            style: AppTextStyles.labelSmall.copyWith(color: Colors.white60)),
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: Colors.white60)),
                       ],
                     ),
                   ),
@@ -159,26 +371,36 @@ class _ResultsForStudent extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // Per-exam sections
             ...grouped.entries.expand((entry) => [
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
-                        Container(width: 4, height: 18,
-                            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+                        Container(
+                            width: 4,
+                            height: 18,
+                            decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(2))),
                         const SizedBox(width: 10),
-                        Text(entry.key, style: AppTextStyles.sectionTitle),
+                        Text(entry.key,
+                            style: AppTextStyles.sectionTitle),
                       ],
                     ),
                   ),
                   ...entry.value.map((doc) {
                     final d = doc.data() as Map<String, dynamic>;
-                    final subject = d['subject'] as String? ?? '';
-                    final marks = (d['marksObtained'] as num?)?.toDouble() ?? 0;
-                    final total = (d['totalMarks'] as num?)?.toDouble() ?? 100;
-                    final pct = (d['percentage'] as num?)?.toDouble() ?? 0;
-                    final grade = _letterGrade(pct);
-                    final gradeColor = _gradeColor(pct);
+                    final subject =
+                        d['subject'] as String? ?? 'Subject';
+                    final marks =
+                        (d['marksObtained'] as num?)?.toDouble() ?? 0;
+                    final total =
+                        (d['totalMarks'] as num?)?.toDouble() ?? 100;
+                    final pct =
+                        (d['percentage'] as num?)?.toDouble() ?? 0;
+                    final grd = DataHelpers.letterGrade(pct);
+                    final gradeColor = DataHelpers.gradeColor(pct);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -193,16 +415,20 @@ class _ResultsForStudent extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Expanded(child: Text(subject, style: AppTextStyles.bodyMediumBold)),
+                              Expanded(
+                                  child: Text(subject,
+                                      style:
+                                          AppTextStyles.bodyMediumBold)),
                               Container(
                                 width: 36,
                                 height: 36,
                                 decoration: BoxDecoration(
-                                  color: gradeColor.withOpacity(0.12),
+                                  color:
+                                      gradeColor.withOpacity(0.12),
                                   shape: BoxShape.circle,
                                 ),
                                 alignment: Alignment.center,
-                                child: Text(grade,
+                                child: Text(grd,
                                     style: TextStyle(
                                       fontFamily: 'Poppins',
                                       fontSize: 14,
@@ -217,18 +443,25 @@ class _ResultsForStudent extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius:
+                                      BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: pct / 100,
                                     minHeight: 6,
                                     backgroundColor: AppColors.divider,
-                                    valueColor: AlwaysStoppedAnimation(gradeColor),
+                                    valueColor:
+                                        AlwaysStoppedAnimation(
+                                            gradeColor),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              Text('${marks.toInt()}/${total.toInt()}',
-                                  style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w600)),
+                              Text(
+                                '${marks.toInt()}/${total.toInt()}',
+                                style: AppTextStyles.labelSmall
+                                    .copyWith(
+                                        fontWeight: FontWeight.w600),
+                              ),
                             ],
                           ),
                         ],
@@ -242,21 +475,4 @@ class _ResultsForStudent extends StatelessWidget {
       },
     );
   }
-}
-
-String _letterGrade(double pct) {
-  if (pct >= 90) return 'A+';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'B+';
-  if (pct >= 60) return 'B';
-  if (pct >= 50) return 'C';
-  if (pct >= 40) return 'D';
-  return 'F';
-}
-
-Color _gradeColor(double pct) {
-  if (pct >= 80) return AppColors.success;
-  if (pct >= 60) return AppColors.primary;
-  if (pct >= 40) return AppColors.warning;
-  return AppColors.danger;
 }
