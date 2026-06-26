@@ -289,10 +289,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/parent/home',
         builder: (_, __) => const ParentHomeScreen(),
         routes: [
-          GoRoute(
-            path: 'timetable',
-            builder: (_, __) => const StudentTimetableScreen(),
-          ),
+      GoRoute(
+          path: 'timetable',
+          builder: (_, state) => StudentTimetableScreen(
+          fixedClassName: state.extra as String?,
+    ),
+  ),
           GoRoute(
             path: 'attendance',
             builder: (_, __) => const ParentAttendanceScreen(),
