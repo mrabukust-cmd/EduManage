@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
-import '../../../core/router/route_names.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 
@@ -42,22 +41,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _headerFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _headerController, curve: Curves.easeOut),
     );
-    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _headerController,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+    _headerSlide =
+        Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic),
+    );
 
-    _formFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _formController, curve: Curves.easeOut));
-    _formSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-        .animate(
-          CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
-        );
+    _formFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOut),
+    );
+    _formSlide =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
+    );
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted) return;
@@ -89,12 +84,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     if (!mounted) return;
 
-    // Special case: account pending admin approval
+    // PENDING case: router redirect will handle sending to /pending
+    // because authState.isPending will be true after login() sets it.
+    // We only need to manually trigger if redirect doesn't fire.
     if (error == 'PENDING') {
       context.go('/pending');
       return;
     }
 
+    // Show error snackbar if login failed
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -109,20 +107,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
-    final role = ref.read(authProvider).role;
-    switch (role) {
-      case 'admin':
-        context.go(RouteNames.adminHome);
-        break;
-      case 'teacher':
-        context.go(RouteNames.teacherHome);
-        break;
-      case 'parent':
-        context.go(RouteNames.parentHome);
-        break;
-      default:
-        context.go(RouteNames.studentHome);
-    }
+    // ── SUCCESS ──────────────────────────────────────────────────────────────
+    // DO NOT read role here and navigate manually.
+    // The router's redirect() watches authProvider and will automatically
+    // fire as soon as login() updates the state with the correct role.
+    // Manual navigation here races against the redirect and can send the
+    // user to the wrong screen (e.g. student sees teacher home) because
+    // context.go() resolves before Riverpod propagates the new state.
+    //
+    // The redirect in app_router.dart handles:
+    //   role == 'admin'   → /admin/home
+    //   role == 'teacher' → /teacher/home
+    //   role == 'parent'  → /parent/home
+    //   _               → /student/home
+    //
+    // Nothing to do here — router takes over automatically.
   }
 
   @override
@@ -135,7 +134,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Header gradient area ───────────────────────────
+            // ── Header gradient area ─────────────────────────────────────────
             SlideTransition(
               position: _headerSlide,
               child: FadeTransition(
@@ -198,7 +197,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               ),
             ),
 
-            // ── Form ──────────────────────────────────────────
+            // ── Form ─────────────────────────────────────────────────────────
             SlideTransition(
               position: _formSlide,
               child: FadeTransition(
@@ -217,8 +216,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           keyboardType: TextInputType.emailAddress,
                           prefixIcon: Icons.email_outlined,
                           validator: (v) {
-                            if (v == null || v.isEmpty)
+                            if (v == null || v.isEmpty) {
                               return 'Email is required';
+                            }
                             if (!v.contains('@')) return 'Enter a valid email';
                             return null;
                           },
@@ -232,8 +232,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           isPassword: true,
                           prefixIcon: Icons.lock_outline_rounded,
                           validator: (v) {
-                            if (v == null || v.isEmpty)
+                            if (v == null || v.isEmpty) {
                               return 'Password is required';
+                            }
                             if (v.length < 6) return 'Minimum 6 characters';
                             return null;
                           },

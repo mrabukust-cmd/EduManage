@@ -40,12 +40,41 @@ import 'package:school_management_system/features/parents/parent_result.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 // ── Router Provider ───────────────────────────────────────────────────────────
+//
+// KEY FIX: GoRouter is created once and stored in a ref.state (via a
+// StateProvider or a listenable). We use a GoRouter with a
+// refreshListenable so the router re-evaluates redirect() every time
+// authProvider changes — without this, the redirect only runs once at
+// startup and never again when login completes.
+//
+// The _RouterNotifier bridges Riverpod → ChangeNotifier so GoRouter
+// can listen to auth state changes.
+
+class _RouterNotifier extends ChangeNotifier {
+  _RouterNotifier(this._ref) {
+    // Listen to authProvider and notify GoRouter to re-run redirect()
+    // whenever auth state changes (login, logout, role set, etc.)
+    _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+  }
+
+  final Ref _ref;
+
+  AuthState get authState => _ref.read(authProvider);
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = _RouterNotifier(ref);
 
   return GoRouter(
     initialLocation: '/splash',
+    // refreshListenable makes GoRouter re-run redirect() whenever
+    // _RouterNotifier calls notifyListeners() — i.e. on every auth change.
+    refreshListenable: notifier,
     redirect: (context, state) {
+      // Always read fresh state inside redirect — do NOT capture authState
+      // from outside this closure because it would be stale.
+      final authState = notifier.authState;
+
       final isInitializing = authState.isInitializing;
       final isLoggedIn = authState.user != null;
       final role = authState.role;
@@ -58,40 +87,55 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onRegister = loc == '/register';
       final onPending = loc == '/pending';
 
-      // ← This is the critical line — hold all routing until role is known
+      // Hold all routing while we're loading role from Firestore on startup.
       if (isInitializing) return null;
 
+      // Always allow splash and onboarding through.
       if (onSplash || onBoarding) return null;
+
+      // Not logged in → send to login (unless already there or registering).
       if (!isLoggedIn && !onLogin && !onRegister) return '/login';
+
+      // Logged in but pending approval → send to pending screen.
       if (isLoggedIn && isPending && !onPending) return '/pending';
 
+      // Logged in, approved, on an auth screen → redirect to role home.
+      // This is the critical block that fires after login() completes and
+      // sets the role in authProvider. The redirect sees the new role and
+      // sends the user to the correct home screen.
       if (isLoggedIn && !isPending && (onLogin || onRegister || onPending)) {
-        return switch (role) {
-          'admin' => '/admin/home',
-          'teacher' => '/teacher/home',
-          'parent' => '/parent/home',
-          _ => '/student/home',
-        };
+        return _homeForRole(role);
       }
 
+      // Already on the right screen — no redirect needed.
       return null;
     },
     routes: [
       // ── Auth ──────────────────────────────────────────────────────────────
-      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (_, __) => const OnboardingScreen(),
       ),
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (_, __) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (_, __) => const RegisterScreen(),
+      ),
 
-      // ── Pending approval ───────────────────────────────────────────────────
+      // ── Pending approval ──────────────────────────────────────────────────
       GoRoute(
         path: '/pending',
         builder: (_, __) => const WaitingApprovalScreen(),
       ),
-      // ── Admin ──────────────────────────────────────────────────────────────
+
+      // ── Admin ─────────────────────────────────────────────────────────────
       GoRoute(
         path: '/admin/home',
         builder: (_, __) => const AdminHomeScreen(),
@@ -112,7 +156,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'teachers/add',
             builder: (_, __) => const AddTeacherScreen(),
           ),
-          GoRoute(path: 'classes', builder: (_, __) => const ClassesScreen()),
+          GoRoute(
+            path: 'classes',
+            builder: (_, __) => const ClassesScreen(),
+          ),
           GoRoute(
             path: 'fees',
             builder: (_, __) => const FeeManagementScreen(),
@@ -121,7 +168,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const NoticeBoardScreen(),
           ),
-          GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
+          GoRoute(
+            path: 'reports',
+            builder: (_, __) => const ReportsScreen(),
+          ),
           GoRoute(
             path: 'approvals',
             builder: (_, __) => const PendingApprovalsScreen(),
@@ -130,7 +180,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'fix-class-names',
             builder: (_, __) => const ClassNameMergeScreen(),
           ),
-          // ── NEW: seed all classes Nursery → Grade 12 with A/B/C sections ──
           GoRoute(
             path: 'seed-classes',
             builder: (_, __) => const ClassSeederScreen(),
@@ -143,12 +192,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'timetable',
             builder: (_, __) => const TimetableScreen(),
           ),
-          GoRoute(path: 'settings', builder: (_, __) => const ProfileScreen()),
-          // GoRoute(path: 'history',    builder: (_, __) => const AdminActivityHistoryScreen()),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const ProfileScreen(),
+          ),
         ],
       ),
 
-      // ── Teacher ────────────────────────────────────────────────────────────
+      // ── Teacher ───────────────────────────────────────────────────────────
       GoRoute(
         path: '/teacher/home',
         builder: (_, __) => const TeacherHomeScreen(),
@@ -174,7 +225,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'assignments',
             builder: (_, __) => const AssignmentsScreen(),
           ),
-          GoRoute(path: 'grades', builder: (_, __) => const GradesScreen()),
+          GoRoute(
+            path: 'grades',
+            builder: (_, __) => const GradesScreen(),
+          ),
           GoRoute(
             path: 'timetable',
             builder: (_, __) => const TimetableScreen(),
@@ -185,11 +239,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               body: Center(child: Text('Messages – Coming Soon')),
             ),
           ),
-          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(
+            path: 'profile',
+            builder: (_, __) => const ProfileScreen(),
+          ),
         ],
       ),
 
-      // ── Student ────────────────────────────────────────────────────────────
+      // ── Student ───────────────────────────────────────────────────────────
       GoRoute(
         path: '/student/home',
         builder: (_, __) => const StudentHomeScreen(),
@@ -214,11 +271,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const StudentNoticesScreen(),
           ),
-          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(
+            path: 'profile',
+            builder: (_, __) => const ProfileScreen(),
+          ),
         ],
       ),
 
-      // ── Parent ─────────────────────────────────────────────────────────────
+      // ── Parent ────────────────────────────────────────────────────────────
       GoRoute(
         path: '/parent/home',
         builder: (_, __) => const ParentHomeScreen(),
@@ -239,7 +299,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const StudentNoticesScreen(),
           ),
-          GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
+          GoRoute(
+            path: 'profile',
+            builder: (_, __) => const ProfileScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -247,8 +310,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const NotificationsScreen(),
       ),
 
-      // ── Shared ─────────────────────────────────────────────────────────────
-      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      // ── Shared ────────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) => const ProfileScreen(),
+      ),
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
@@ -263,13 +329,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/help',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('Help – Coming Soon'))),
+        builder: (_, __) => const Scaffold(
+          body: Center(child: Text('Help – Coming Soon')),
+        ),
       ),
       GoRoute(
         path: '/about',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('About – Coming Soon'))),
+        builder: (_, __) => const Scaffold(
+          body: Center(child: Text('About – Coming Soon')),
+        ),
       ),
     ],
 
@@ -296,3 +364,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+/// Maps a role string to the correct home route path.
+String _homeForRole(String? role) {
+  return switch (role) {
+    'admin' => '/admin/home',
+    'teacher' => '/teacher/home',
+    'parent' => '/parent/home',
+    _ => '/student/home',
+  };
+}
