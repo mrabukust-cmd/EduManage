@@ -28,30 +28,28 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
 
-    // Logo animation controller
     _logoController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
 
-    // Text animation controller
     _textController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
 
-    // Tagline animation controller
     _taglineController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
 
-    // Logo: scale + fade
     _logoScale = Tween<double>(begin: 0.3, end: 1.0).animate(
       CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
     );
@@ -61,22 +59,20 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
-    _ringScale = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.easeOut),
-    );
+    _ringScale = Tween<double>(
+      begin: 0.5,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _logoController, curve: Curves.easeOut));
 
-    // Text
-    _textFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeIn),
-    );
-    _textSlide = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
-    );
+    _textFade = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeIn));
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
+        );
 
-    // Tagline
     _taglineFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _taglineController, curve: Curves.easeIn),
     );
@@ -97,7 +93,6 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     _taglineController.forward();
 
-    // Wait then navigate
     await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
     _navigate();
@@ -144,19 +139,16 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.splashGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.splashGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // ── Main content centered ──────────────────────────
               Expanded(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Ring decoration behind logo
+                      // ── Logo with ring decoration ──────────────────────
                       AnimatedBuilder(
                         animation: _logoController,
                         builder: (context, child) {
@@ -169,8 +161,8 @@ class _SplashScreenState extends State<SplashScreen>
                                 children: [
                                   // Outer ring
                                   Container(
-                                    width: 140,
-                                    height: 140,
+                                    width: 160,
+                                    height: 160,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
@@ -181,8 +173,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   ),
                                   // Inner ring
                                   Container(
-                                    width: 110,
-                                    height: 110,
+                                    width: 126,
+                                    height: 126,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
@@ -191,24 +183,32 @@ class _SplashScreenState extends State<SplashScreen>
                                       ),
                                     ),
                                   ),
-                                  // Logo box
+                                  // Logo container
                                   ScaleTransition(
                                     scale: _logoScale,
                                     child: Container(
-                                      width: 82,
-                                      height: 82,
+                                      width: 100,
+                                      height: 100,
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(24),
+                                        borderRadius: BorderRadius.circular(28),
                                         border: Border.all(
                                           color: Colors.white.withOpacity(0.4),
                                           width: 1.5,
                                         ),
                                       ),
-                                      child: const Icon(
-                                        Icons.school_rounded,
-                                        size: 44,
-                                        color: Colors.white,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(26),
+                                        child: Image.asset(
+                                          'assets/logo/logo.png',
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                Icons.school_rounded,
+                                                size: 52,
+                                                color: Colors.white,
+                                              ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -256,7 +256,6 @@ class _SplashScreenState extends State<SplashScreen>
 
                       const SizedBox(height: 16),
 
-                      // Tagline
                       FadeTransition(
                         opacity: _taglineFade,
                         child: Container(
@@ -301,8 +300,9 @@ class _SplashScreenState extends State<SplashScreen>
                           borderRadius: BorderRadius.circular(4),
                           child: const LinearProgressIndicator(
                             backgroundColor: Colors.white24,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                             minHeight: 3,
                           ),
                         ),

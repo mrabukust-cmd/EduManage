@@ -84,15 +84,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     if (!mounted) return;
 
-    // PENDING case: router redirect will handle sending to /pending
-    // because authState.isPending will be true after login() sets it.
-    // We only need to manually trigger if redirect doesn't fire.
     if (error == 'PENDING') {
       context.go('/pending');
       return;
     }
 
-    // Show error snackbar if login failed
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -106,22 +102,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       );
       return;
     }
-
-    // ── SUCCESS ──────────────────────────────────────────────────────────────
-    // DO NOT read role here and navigate manually.
-    // The router's redirect() watches authProvider and will automatically
-    // fire as soon as login() updates the state with the correct role.
-    // Manual navigation here races against the redirect and can send the
-    // user to the wrong screen (e.g. student sees teacher home) because
-    // context.go() resolves before Riverpod propagates the new state.
-    //
-    // The redirect in app_router.dart handles:
-    //   role == 'admin'   → /admin/home
-    //   role == 'teacher' → /teacher/home
-    //   role == 'parent'  → /parent/home
-    //   _               → /student/home
-    //
-    // Nothing to do here — router takes over automatically.
   }
 
   @override
@@ -140,7 +120,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               child: FadeTransition(
                 opacity: _headerFade,
                 child: Container(
-                  height: size.height * 0.38,
+                  height: size.height * 0.40,
                   width: double.infinity,
                   decoration: const BoxDecoration(
                     gradient: AppColors.primaryGradient,
@@ -153,21 +133,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        // Logo image
                         Container(
-                          width: 80,
-                          height: 80,
+                          width: 90,
+                          height: 90,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(26),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.4),
                               width: 1.5,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.school_rounded,
-                            color: Colors.white,
-                            size: 44,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(
+                              'assets/logo/logo.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.school_rounded,
+                                color: Colors.white,
+                                size: 48,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -249,7 +237,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ),
                         const SizedBox(height: 32),
 
-                        // Sign-up prompt
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

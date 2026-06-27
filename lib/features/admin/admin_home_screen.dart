@@ -41,11 +41,18 @@ String _fmtTime(DateTime dt) {
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
-class AdminHomeScreen extends ConsumerWidget {
+class AdminHomeScreen extends ConsumerStatefulWidget {
   const AdminHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
+
+class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
+  bool _feePopupDismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
 
     return Scaffold(
@@ -66,6 +73,15 @@ class AdminHomeScreen extends ConsumerWidget {
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+            // ── Fee Alert Banner ──────────────────────────────────────────────
+            if (!_feePopupDismissed)
+              SliverToBoxAdapter(
+                child: _FeeAlertBanner(
+                  onDismiss: () => setState(() => _feePopupDismissed = true),
+                  onView: () => context.push('/admin/home/fees'),
+                ),
+              ),
 
             // Pending banner
             SliverToBoxAdapter(child: _PendingApprovalsBanner()),
@@ -117,6 +133,260 @@ class AdminHomeScreen extends ConsumerWidget {
   }
 }
 
+// ── Fee Alert Banner ───────────────────────────────────────────────────────────
+class _FeeAlertBanner extends StatelessWidget {
+  final VoidCallback onDismiss;
+  final VoidCallback onView;
+
+  const _FeeAlertBanner({required this.onDismiss, required this.onView});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('fees')
+          .where('status', whereIn: ['pending', 'overdue'])
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+
+        // Separate overdue vs pending
+        final overdueList = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return (data['status'] as String?) == 'overdue';
+        }).toList();
+
+        final pendingList = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return (data['status'] as String?) == 'pending';
+        }).toList();
+
+        // Calculate total outstanding amount
+        double totalAmount = 0;
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+          totalAmount += amount;
+        }
+
+        final hasOverdue = overdueList.isNotEmpty;
+        final bannerColor = hasOverdue ? AppColors.danger : AppColors.warning;
+        final icon = hasOverdue
+            ? Icons.warning_amber_rounded
+            : Icons.account_balance_wallet_rounded;
+
+        return Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          decoration: BoxDecoration(
+            color: bannerColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: bannerColor.withOpacity(0.4)),
+          ),
+          child: Column(
+            children: [
+              // Main banner row
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: bannerColor.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: bannerColor, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasOverdue
+                                ? '${overdueList.length} Overdue Fee${overdueList.length == 1 ? '' : 's'}!'
+                                : '${pendingList.length} Pending Fee${pendingList.length == 1 ? '' : 's'}',
+                            style: AppTextStyles.bodyMediumBold.copyWith(
+                              color: bannerColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Rs. ${NumberFormat('#,##0').format(totalAmount)} outstanding',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Dismiss button
+                    IconButton(
+                      onPressed: onDismiss,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: bannerColor.withOpacity(0.7),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Fee breakdown chips
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                child: Row(
+                  children: [
+                    if (overdueList.isNotEmpty)
+                      _FeeChip(
+                        label: '${overdueList.length} Overdue',
+                        color: AppColors.danger,
+                      ),
+                    if (overdueList.isNotEmpty && pendingList.isNotEmpty)
+                      const SizedBox(width: 8),
+                    if (pendingList.isNotEmpty)
+                      _FeeChip(
+                        label: '${pendingList.length} Pending',
+                        color: AppColors.warning,
+                      ),
+                    const Spacer(),
+                    // View button
+                    GestureDetector(
+                      onTap: onView,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: bannerColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.visibility_rounded,
+                                size: 14, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(
+                              'View All',
+                              style: AppTextStyles.labelTiny.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Recent overdue names (up to 2)
+              if (overdueList.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Divider(height: 1, color: AppColors.divider),
+                ),
+                ...overdueList.take(2).map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final name = data['studentName'] as String? ?? '';
+                  final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+                  final dueDate = (data['dueDate'] as Timestamp?)?.toDate();
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline_rounded,
+                            size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Rs. ${NumberFormat('#,##0').format(amount)}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (dueDate != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('MMM d').format(dueDate),
+                            style: AppTextStyles.labelTiny.copyWith(
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+                if (overdueList.length > 2)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+                    child: Text(
+                      '+ ${overdueList.length - 2} more overdue',
+                      style: AppTextStyles.labelTiny.copyWith(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(height: 10),
+              ] else
+                const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FeeChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _FeeChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.labelTiny.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 // ── Header ─────────────────────────────────────────────────────────────────────
 class _AdminHeader extends StatelessWidget {
   final String userName;
@@ -136,16 +406,44 @@ class _AdminHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text('Good Morning,',
-                      style: AppTextStyles.labelMedium
-                          .copyWith(color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  Text(userName,
-                      style: AppTextStyles.headingLarge
-                          .copyWith(color: Colors.white)),
+                  // App logo in header
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.3)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/logo/logo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.school_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Good Morning,',
+                          style: AppTextStyles.labelMedium
+                              .copyWith(color: Colors.white70)),
+                      const SizedBox(height: 4),
+                      Text(userName,
+                          style: AppTextStyles.headingLarge
+                              .copyWith(color: Colors.white)),
+                    ],
+                  ),
                 ],
               ),
               CircleAvatar(
@@ -309,11 +607,7 @@ class _PendingApprovalsBanner extends StatelessWidget {
   }
 }
 
-// ── Quick Actions — responsive stretched grid ──────────────────────────────────
-//
-// Uses LayoutBuilder so every card fills its cell perfectly on any screen width.
-// We show 3 columns. Each cell is square (aspectRatio 1.0) giving the icon room
-// to breathe without truncating the label.
+// ── Quick Actions Grid ─────────────────────────────────────────────────────────
 class _QuickActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -362,13 +656,11 @@ class _QuickActionsGrid extends StatelessWidget {
               final cellW =
                   (constraints.maxWidth - spacing * (cols - 1)) / cols;
 
-              // Build rows of 3
               final rows = <Widget>[];
               for (var i = 0; i < actions.length; i += cols) {
                 final rowItems = actions.sublist(
                     i, (i + cols).clamp(0, actions.length));
 
-                // Pad last row if needed so all cells are same width
                 while (rowItems.length < cols) {
                   rowItems.add(const _QA('', Icons.circle, Colors.transparent, null));
                 }
@@ -381,7 +673,7 @@ class _QuickActionsGrid extends StatelessWidget {
                       if (idx > 0) const SizedBox(width: spacing),
                       SizedBox(
                         width: cellW,
-                        height: cellW, // square cell
+                        height: cellW,
                         child: a.label.isEmpty
                             ? const SizedBox.shrink()
                             : Stack(
@@ -476,7 +768,6 @@ class _QACard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        // Fill the parent SizedBox entirely
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
@@ -827,5 +1118,3 @@ class _AdminBottomNav extends StatelessWidget {
     );
   }
 }
-
-
