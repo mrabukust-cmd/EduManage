@@ -6,37 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/services/notification_helper.dart';
 import 'attendence_screen.dart';
 
-/// Shows registered students of ONE class and lets the teacher mark
-/// and submit attendance for TODAY ONLY. Written records are immediately
-/// visible in StudentAttendanceScreen and ParentAttendanceScreen because
-/// they both query: attendance WHERE studentId == uid AND date == today.
-///
-/// THE FIX (no double attendance, date is mandatory):
-/// ──────────────────────────────────────────────────────────────────────
-/// 1. DATE IS ALWAYS VISIBLE AND MANDATORY. The date being marked is
-///    shown at the top of the screen at all times — it is never implicit.
-///    There is no date picker: attendance can only be marked for today,
-///    which removes any chance of accidentally marking the wrong day.
-///
-/// 2. NO DOUBLE ATTENDANCE AT THE DATA LAYER. Each (student, date) pair
-///    maps to exactly one deterministic Firestore document ID:
-///    `attendance/{studentId}_{yyyy-MM-dd}`. Submitting again for the
-///    same day always overwrites that same document — it is structurally
-///    impossible to create two attendance records for one student on one
-///    day, no matter how many times submit is pressed.
-///
-/// 3. NO SILENT DOUBLE-SUBMIT AT THE UI LAYER. Before showing the marking
-///    list, this screen now checks Firestore for an existing attendance
-///    record for this class + today. If one exists:
-///      - An "Already marked today" banner is shown.
-///      - Every student's existing status is loaded and pre-filled, so
-///        the teacher sees exactly what was previously submitted.
-///      - The teacher can still edit individual marks and press
-///        "Update Attendance" to re-submit — this is an intentional
-///        correction path, not an accidental duplicate, and it still
-///        lands on the same deterministic document per student.
 class ClassAttendanceScreen extends ConsumerStatefulWidget {
   final String className;
   const ClassAttendanceScreen({super.key, required this.className});
@@ -46,11 +18,11 @@ class ClassAttendanceScreen extends ConsumerStatefulWidget {
       _ClassAttendanceScreenState();
 }
 
-class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
+class _ClassAttendanceScreenState
+    extends ConsumerState<ClassAttendanceScreen> {
   bool _submitting = false;
   bool _submitted = false;
 
-  // ── Existing-marks-for-today lookup ──────────────────────────────────
   bool _loadingExisting = true;
   bool _alreadyMarkedToday = false;
   DateTime? _lastMarkedAt;
@@ -62,7 +34,8 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
         '${now.day.toString().padLeft(2, '0')}';
   }
 
-  String get _todayDisplay => DateFormat('EEEE, MMM d, yyyy').format(DateTime.now());
+  String get _todayDisplay =>
+      DateFormat('EEEE, MMM d, yyyy').format(DateTime.now());
 
   @override
   void initState() {
@@ -70,9 +43,6 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
     _loadExistingAttendance();
   }
 
-  /// Checks whether this class already has attendance recorded for today,
-  /// and if so, pre-fills every student's status from Firestore instead
-  /// of leaving them blank. Runs once when the screen opens.
   Future<void> _loadExistingAttendance() async {
     try {
       final db = FirebaseFirestore.instance;
@@ -92,7 +62,6 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
         return;
       }
 
-      // Pre-fill the marking state from whatever was already submitted.
       final notifier =
           ref.read(attendanceStatusesProvider(widget.className).notifier);
       DateTime? latest;
@@ -133,30 +102,24 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
     List<StudentAttendance> students,
     Map<String, AttendanceStatus> statuses,
   ) async {
-    // Date is mandatory and fixed to today — there is no path through
-    // this method that writes any other date, by construction.
     final dateKey = _todayKey;
-
     setState(() => _submitting = true);
+
     try {
       final teacherId = FirebaseAuth.instance.currentUser?.uid ?? '';
       final db = FirebaseFirestore.instance;
-
-      // Deterministic doc ID per (student, date) = upsert, never a dupe.
-      // Re-submitting today always overwrites the same set of docs.
       final batch = db.batch();
 
       for (final student in students) {
         final status = statuses[student.id] ?? AttendanceStatus.absent;
-        final docRef = db
-            .collection('attendance')
-            .doc('${student.id}_$dateKey');
+        final docRef =
+            db.collection('attendance').doc('${student.id}_$dateKey');
         batch.set(docRef, {
           'studentId': student.id,
           'studentName': student.name,
           'className': widget.className,
           'date': dateKey,
-          'status': status.name, // 'present' | 'absent' | 'late'
+          'status': status.name,
           'markedBy': teacherId,
           'timestamp': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
@@ -164,6 +127,25 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
       }
 
       await batch.commit();
+
+      // ── Notify absent / late students and their parents ───────────────
+      try {
+        final statusMap = <String, String>{};
+        final nameMap = <String, String>{};
+        for (final student in students) {
+          final s = statuses[student.id] ?? AttendanceStatus.absent;
+          statusMap[student.id] = s.name; // 'present' | 'absent' | 'late'
+          nameMap[student.id] = student.name;
+        }
+        await AppNotifications.onAttendanceMarked(
+          className: widget.className,
+          dateLabel: _todayDisplay,
+          statusByStudentId: statusMap,
+          studentNamesById: nameMap,
+        );
+      } catch (_) {
+        // Non-fatal — attendance was committed to Firestore already.
+      }
 
       if (!mounted) return;
       setState(() {
@@ -210,21 +192,24 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
     );
     final presentCount = studentsAsync.when(
       data: (s) => s
-          .where((st) => attendanceStatuses[st.id] == AttendanceStatus.present)
+          .where((st) =>
+              attendanceStatuses[st.id] == AttendanceStatus.present)
           .length,
       loading: () => 0,
       error: (_, __) => 0,
     );
     final absentCount = studentsAsync.when(
       data: (s) => s
-          .where((st) => attendanceStatuses[st.id] == AttendanceStatus.absent)
+          .where(
+              (st) => attendanceStatuses[st.id] == AttendanceStatus.absent)
           .length,
       loading: () => 0,
       error: (_, __) => 0,
     );
     final lateCount = studentsAsync.when(
       data: (s) => s
-          .where((st) => attendanceStatuses[st.id] == AttendanceStatus.late)
+          .where(
+              (st) => attendanceStatuses[st.id] == AttendanceStatus.late)
           .length,
       loading: () => 0,
       error: (_, __) => 0,
@@ -239,20 +224,19 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          widget.className,
-          style: AppTextStyles.headingMedium.copyWith(color: Colors.white),
-        ),
+        title: Text(widget.className,
+            style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: Column(
         children: [
-          // ── Mandatory date bar — always visible, never implicit ──────
+          // Mandatory date bar
           Container(
             width: double.infinity,
             color: AppColors.teacherColor,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
@@ -274,7 +258,7 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
             ),
           ),
 
-          // ── Already-marked banner ─────────────────────────────────────
+          // Already-marked banner
           if (!_loadingExisting && _alreadyMarkedToday)
             Container(
               width: double.infinity,
@@ -283,7 +267,8 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
               decoration: BoxDecoration(
                 color: AppColors.warning.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+                border:
+                    Border.all(color: AppColors.warning.withOpacity(0.4)),
               ),
               child: Row(
                 children: [
@@ -306,28 +291,36 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
               ),
             ),
 
-          // ── Summary Bar ──────────────────────────────────────
+          // Summary bar
           Container(
             color: AppColors.teacherColor,
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
             child: Row(
               children: [
                 _SummaryChip(
-                    label: 'Present', count: presentCount, color: Colors.greenAccent),
+                    label: 'Present',
+                    count: presentCount,
+                    color: Colors.greenAccent),
                 const SizedBox(width: 8),
                 _SummaryChip(
-                    label: 'Absent', count: absentCount, color: Colors.redAccent),
+                    label: 'Absent',
+                    count: absentCount,
+                    color: Colors.redAccent),
                 const SizedBox(width: 8),
                 _SummaryChip(
-                    label: 'Late', count: lateCount, color: Colors.orangeAccent),
+                    label: 'Late',
+                    count: lateCount,
+                    color: Colors.orangeAccent),
                 const SizedBox(width: 8),
                 _SummaryChip(
-                    label: 'Total', count: totalCount, color: Colors.white),
+                    label: 'Total',
+                    count: totalCount,
+                    color: Colors.white),
               ],
             ),
           ),
 
-          // ── Mark All Row ─────────────────────────────────────
+          // Mark All row
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -358,75 +351,76 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
             ),
           ),
 
-          // ── Student List ─────────────────────────────────────
+          // Student list
           Expanded(
             child: _loadingExisting
                 ? const Center(child: CircularProgressIndicator())
                 : studentsAsync.when(
-              data: (students) {
-                if (students.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.people_outline_rounded,
-                              size: 64, color: AppColors.textHint),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No students enrolled in ${widget.className}.\n'
-                            'Add students with this class assigned to see them here.',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.textSecondary),
+                    data: (students) {
+                      if (students.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.people_outline_rounded,
+                                    size: 64, color: AppColors.textHint),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No students enrolled in ${widget.className}.\n'
+                                  'Add students with this class assigned to see them here.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                      color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
+                        );
+                      }
+                      return ListView.separated(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: students.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (_, index) {
+                          final student = students[index];
+                          final currentStatus =
+                              attendanceStatuses[student.id];
+                          return _StudentAttRow(
+                            student: student,
+                            currentStatus: currentStatus,
+                            onStatus: (status) =>
+                                notifier.setStatus(student.id, status),
+                          );
+                        },
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => Center(
+                      child: Text('Unable to load students',
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textSecondary)),
                     ),
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: students.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, index) {
-                    final student = students[index];
-                    final currentStatus = attendanceStatuses[student.id];
-                    return _StudentAttRow(
-                      student: student,
-                      currentStatus: currentStatus,
-                      onStatus: (status) =>
-                          notifier.setStatus(student.id, status),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => Center(
-                child: Text('Unable to load students',
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: AppColors.textSecondary)),
-              ),
-            ),
+                  ),
           ),
 
-          // ── Submit Button ────────────────────────────────────
+          // Submit button
           Padding(
             padding: const EdgeInsets.all(20),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                // Note: unlike before, the button is NOT permanently
-                // disabled after one submit in this session. Since every
-                // write targets the same deterministic doc per student
-                // per day, re-submitting is a safe, intentional correction
-                // — not a duplicate. _submitted only drives the label/icon.
-                onPressed: _submitting || totalCount == 0 || _loadingExisting
+                onPressed: _submitting ||
+                        totalCount == 0 ||
+                        _loadingExisting
                     ? null
                     : () async {
-                        final statuses = ref
-                            .read(attendanceStatusesProvider(widget.className));
+                        final statuses = ref.read(
+                            attendanceStatusesProvider(widget.className));
                         final students =
                             studentsAsync.asData?.value ?? [];
                         await _submitAttendance(students, statuses);
@@ -448,9 +442,8 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
                             ? 'Update Attendance'
                             : 'Submit Attendance'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _submitted
-                      ? AppColors.success
-                      : AppColors.teacherColor,
+                  backgroundColor:
+                      _submitted ? AppColors.success : AppColors.teacherColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
@@ -469,7 +462,7 @@ class _ClassAttendanceScreenState extends ConsumerState<ClassAttendanceScreen> {
   }
 }
 
-// ── Summary Chip ──────────────────────────────────────────────────────────────
+// ── Summary Chip ───────────────────────────────────────────────────────────────
 class _SummaryChip extends StatelessWidget {
   final String label;
   final int count;
@@ -509,7 +502,7 @@ class _SummaryChip extends StatelessWidget {
   }
 }
 
-// ── Mark All Button ───────────────────────────────────────────────────────────
+// ── Mark All Button ────────────────────────────────────────────────────────────
 class _MarkAllBtn extends StatelessWidget {
   final String label;
   final Color color;
@@ -529,19 +522,17 @@ class _MarkAllBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withOpacity(0.4)),
         ),
-        child: Text(
-          label,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: Text(label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            )),
       ),
     );
   }
 }
 
-// ── Student Attendance Row ────────────────────────────────────────────────────
+// ── Student Attendance Row ─────────────────────────────────────────────────────
 class _StudentAttRow extends StatelessWidget {
   final StudentAttendance student;
   final AttendanceStatus? currentStatus;

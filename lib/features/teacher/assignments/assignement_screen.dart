@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/services/notification_helper.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -39,7 +40,8 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: Text('New Assignment',
-            style: AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
+            style:
+                AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
@@ -79,9 +81,10 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
                     final data = docs[i].data() as Map<String, dynamic>;
-                    final dueDate = (data['dueDate'] as Timestamp?)?.toDate();
-                    final overdue =
-                        dueDate != null && dueDate.isBefore(DateTime.now());
+                    final dueDate =
+                        (data['dueDate'] as Timestamp?)?.toDate();
+                    final overdue = dueDate != null &&
+                        dueDate.isBefore(DateTime.now());
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -89,7 +92,8 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: AppColors.cardShadow,
                         border: overdue
-                            ? Border.all(color: AppColors.danger.withOpacity(0.4))
+                            ? Border.all(
+                                color: AppColors.danger.withOpacity(0.4))
                             : null,
                       ),
                       child: Row(
@@ -97,7 +101,8 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: AppColors.teacherColor.withOpacity(0.1),
+                              color:
+                                  AppColors.teacherColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.assignment_rounded,
@@ -156,15 +161,13 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
       backgroundColor: AppColors.cardBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) => _AddAssignmentSheet(teacherId: teacherId),
+      builder: (sheetContext) =>
+          _AddAssignmentSheet(teacherId: teacherId),
     );
   }
 }
 
 // ── Add Assignment Sheet ───────────────────────────────────────────────────────
-//
-// Extracted to its own StatefulWidget so we can use setState freely and
-// also run async Firestore lookups to populate the class/subject dropdowns.
 class _AddAssignmentSheet extends StatefulWidget {
   final String teacherId;
   const _AddAssignmentSheet({required this.teacherId});
@@ -178,11 +181,9 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
   final _descCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  // Dropdown selections
   String? _selectedClass;
   String? _selectedSubject;
 
-  // Data loaded from Firestore
   List<String> _assignedClasses = [];
   List<String> _teacherSubjects = [];
   bool _loadingTeacherData = true;
@@ -203,7 +204,6 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
     super.dispose();
   }
 
-  /// Loads the teacher's assigned classes and subjects from their Firestore doc.
   Future<void> _loadTeacherData() async {
     try {
       final doc = await FirebaseFirestore.instance
@@ -215,7 +215,6 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
 
       final data = doc.data()!;
 
-      // Classes: prefer 'classes' array, fall back to classTeacher lookup
       List<String> classes = (data['classes'] as List<dynamic>?)
               ?.map((e) => e.toString().trim())
               .where((s) => s.isNotEmpty)
@@ -230,14 +229,14 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               .where('classTeacher', isEqualTo: name)
               .get();
           classes = classSnap.docs
-              .map((d) => (d.data()['name'] as String? ?? '').trim())
+              .map((d) =>
+                  (d.data()['name'] as String? ?? '').trim())
               .where((s) => s.isNotEmpty)
               .toList();
         }
       }
       classes.sort();
 
-      // Subjects: prefer 'subjects' array, fall back to single 'subject' string
       List<String> subjects = (data['subjects'] as List<dynamic>?)
               ?.map((e) => e.toString().trim())
               .where((s) => s.isNotEmpty)
@@ -278,7 +277,6 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
               Center(
                 child: Container(
                   width: 40,
@@ -293,7 +291,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               Text('New Assignment', style: AppTextStyles.headingMedium),
               const SizedBox(height: 16),
 
-              // ── Title ──────────────────────────────────────────────
+              // Title
               CustomTextField(
                 label: 'Title',
                 controller: _titleCtrl,
@@ -302,7 +300,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               ),
               const SizedBox(height: 14),
 
-              // ── Description ────────────────────────────────────────
+              // Description
               CustomTextField(
                 label: 'Description',
                 controller: _descCtrl,
@@ -310,7 +308,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               ),
               const SizedBox(height: 14),
 
-              // ── Class dropdown ─────────────────────────────────────
+              // Class dropdown
               _loadingTeacherData
                   ? _LoadingField(label: 'Class')
                   : _assignedClasses.isEmpty
@@ -339,7 +337,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
                         ),
               const SizedBox(height: 14),
 
-              // ── Subject dropdown ───────────────────────────────────
+              // Subject dropdown
               _loadingTeacherData
                   ? _LoadingField(label: 'Subject')
                   : _teacherSubjects.isEmpty
@@ -368,7 +366,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
                         ),
               const SizedBox(height: 14),
 
-              // ── Due date picker ────────────────────────────────────
+              // Due date picker
               InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -376,8 +374,8 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
                     initialDate:
                         DateTime.now().add(const Duration(days: 7)),
                     firstDate: DateTime.now(),
-                    lastDate:
-                        DateTime.now().add(const Duration(days: 365)),
+                    lastDate: DateTime.now()
+                        .add(const Duration(days: 365)),
                   );
                   if (picked != null) setState(() => _dueDate = picked);
                 },
@@ -410,7 +408,6 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               ),
               const SizedBox(height: 20),
 
-              // ── Submit ─────────────────────────────────────────────
               CustomButton(
                 label: 'Create Assignment',
                 isLoading: _loading,
@@ -433,6 +430,18 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
       return;
     }
     setState(() => _loading = true);
+
+    // Fetch teacher name for the notification message
+    String teacherName = 'Your teacher';
+    try {
+      final tDoc = await FirebaseFirestore.instance
+          .collection('teachers')
+          .doc(widget.teacherId)
+          .get();
+      teacherName = tDoc.data()?['name'] as String? ?? 'Your teacher';
+    } catch (_) {}
+
+    // Save the assignment
     await FirebaseFirestore.instance.collection('assignments').add({
       'title': _titleCtrl.text.trim(),
       'description': _descCtrl.text.trim(),
@@ -442,13 +451,26 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
       'dueDate': Timestamp.fromDate(_dueDate!),
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // ── Notify students (and parents) in this class ───────────────────────
+    try {
+      await AppNotifications.onAssignmentPosted(
+        className: _selectedClass!,
+        subject: _selectedSubject!,
+        assignmentTitle: _titleCtrl.text.trim(),
+        teacherName: teacherName,
+        dueDate: DateFormat('MMM d, yyyy').format(_dueDate!),
+      );
+    } catch (_) {
+      // Non-fatal — assignment was saved successfully.
+    }
+
     if (mounted) Navigator.pop(context);
   }
 }
 
 // ── Small helper widgets ───────────────────────────────────────────────────────
 
-/// A styled dropdown that matches the app's text field look.
 class _DropdownField<T> extends StatelessWidget {
   final String label;
   final String hint;
@@ -471,15 +493,13 @@ class _DropdownField<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            )),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
           value: value,
@@ -506,14 +526,11 @@ class _DropdownField<T> extends StatelessWidget {
               borderSide: const BorderSide(color: AppColors.danger),
             ),
           ),
-          hint: Text(
-            hint,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 14,
-              color: AppColors.textHint,
-            ),
-          ),
+          hint: Text(hint,
+              style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  color: AppColors.textHint)),
           icon: const Icon(Icons.keyboard_arrow_down_rounded,
               color: AppColors.textSecondary),
           borderRadius: BorderRadius.circular(14),
@@ -526,7 +543,6 @@ class _DropdownField<T> extends StatelessWidget {
   }
 }
 
-/// Shown while teacher data is loading from Firestore.
 class _LoadingField extends StatelessWidget {
   final String label;
   const _LoadingField({required this.label});
@@ -536,15 +552,13 @@ class _LoadingField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            )),
         const SizedBox(height: 8),
         Container(
           height: 54,
@@ -565,7 +579,6 @@ class _LoadingField extends StatelessWidget {
   }
 }
 
-/// Shown when a teacher has no classes or subjects on their profile.
 class _WarningField extends StatelessWidget {
   final String label;
   final String message;
@@ -576,15 +589,13 @@ class _WarningField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            )),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(14),
@@ -599,14 +610,11 @@ class _WarningField extends StatelessWidget {
                   color: AppColors.warning, size: 18),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                child: Text(message,
+                    style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 12,
+                        color: AppColors.textSecondary)),
               ),
             ],
           ),
