@@ -495,7 +495,7 @@ packages:
     source: hosted
     version: "6.0.0"
   flutter_local_notifications:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: flutter_local_notifications
       sha256: "0d9035862236fe38250fe1644d7ed3b8254e34a21b2c837c9f539fbb3bba5ef1"
@@ -1294,7 +1294,7 @@ packages:
     source: hosted
     version: "0.6.16"
   timezone:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: timezone
       sha256: "784a5e34d2eb62e1326f24d6f600aaaee452eb8ca8ef2f384a59244e292d158b"

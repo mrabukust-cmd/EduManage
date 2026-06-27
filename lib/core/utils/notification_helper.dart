@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:school_management_system/data/services/local_notification_service.dart';
 
 /// Centralized notification writer.
 ///
@@ -23,6 +24,7 @@ class AppNotifications {
     required String body,
     String type = 'general',
   }) async {
+    // Save to Firestore (existing code)
     await _db.collection('notifications').add({
       'uid': uid,
       'title': title,
@@ -31,6 +33,14 @@ class AppNotifications {
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // NEW: Also show as a popup banner on THIS device
+    // (shows for the currently logged-in user)
+  //   await LocalNotificationService.instance.show(
+  //     title: title,
+  //     body: body,
+  //     type: type,
+  //   );
   }
 
   /// Sends the same notification to every user whose `role` is in [roles].
@@ -61,6 +71,13 @@ class AppNotifications {
       }
       await batch.commit();
     }
+
+    // NEW: Show popup on current device
+  //   await LocalNotificationService.instance.show(
+  //     title: title,
+  //     body: body,
+  //     type: type,
+  //   );
   }
 
   // ── Admin adds a teacher ─────────────────────────────────────────────────
@@ -73,7 +90,8 @@ class AppNotifications {
     await _send(
       uid: teacherUid,
       title: 'Welcome to EduManage! 🎉',
-      body: 'Hi $teacherName, your teacher account has been created by the '
+      body:
+          'Hi $teacherName, your teacher account has been created by the '
           'admin. You can now log in and start managing your classes, '
           'attendance, and assignments.',
       type: 'general',
@@ -92,7 +110,8 @@ class AppNotifications {
     await _send(
       uid: studentUid,
       title: 'Welcome to EduManage! 🎉',
-      body: 'Hi $studentName, your student account is ready. You have been '
+      body:
+          'Hi $studentName, your student account is ready. You have been '
           'enrolled in $className with Roll No $rollNo. Log in to view '
           'your timetable, assignments, and results.',
       type: 'general',
@@ -132,7 +151,8 @@ class AppNotifications {
     await _send(
       uid: userUid,
       title: 'Account Approved ✅',
-      body: 'Good news, $userName! Your $roleLabel account has been approved '
+      body:
+          'Good news, $userName! Your $roleLabel account has been approved '
           'by the school administrator. You can now log in and access all '
           'features available to you.',
       type: 'approval',
@@ -161,7 +181,8 @@ class AppNotifications {
       batch.set(ref, {
         'uid': admin.id,
         'title': 'New Registration Pending Approval 🔔',
-        'body': '$userName has registered as a $roleLabel ($email) and is '
+        'body':
+            '$userName has registered as a $roleLabel ($email) and is '
             'waiting for your approval. Go to Approvals to review their '
             'request.',
         'type': 'registration',
@@ -199,7 +220,8 @@ class AppNotifications {
       batch.set(ref, {
         'uid': student.id,
         'title': '📝 New Assignment: $subject',
-        'body': '$teacherName has posted a new assignment "$assignmentTitle" '
+        'body':
+            '$teacherName has posted a new assignment "$assignmentTitle" '
             'for $className. Due date: $dueDate. Open Assignments to view '
             'the full details.',
         'type': 'assignment',
@@ -214,7 +236,8 @@ class AppNotifications {
       await _notifyParentsOfStudents(
         studentIds: studentIds,
         title: '📝 New Assignment for Your Child: $subject',
-        body: 'A new $subject assignment "$assignmentTitle" has been posted '
+        body:
+            'A new $subject assignment "$assignmentTitle" has been posted '
             'for $className by $teacherName. Due: $dueDate.',
         type: 'assignment',
       );
@@ -235,14 +258,15 @@ class AppNotifications {
     final emoji = percentage >= 80
         ? '🌟'
         : percentage >= 60
-            ? '📊'
-            : '📉';
+        ? '📊'
+        : '📉';
 
     // Notify student
     await _send(
       uid: studentUid,
       title: '$emoji Result Posted: $subject — $examTitle',
-      body: 'Your $subject result for "$examTitle" has been recorded. '
+      body:
+          'Your $subject result for "$examTitle" has been recorded. '
           'You scored $grade (${percentage.toStringAsFixed(1)}%). '
           'Open Results to view the full breakdown.',
       type: 'result',
@@ -252,7 +276,8 @@ class AppNotifications {
     await _notifyParentsOfStudents(
       studentIds: [studentUid],
       title: '$emoji $studentName\'s $subject Result: $grade',
-      body: '$studentName scored $grade (${percentage.toStringAsFixed(1)}%) '
+      body:
+          '$studentName scored $grade (${percentage.toStringAsFixed(1)}%) '
           'in "$examTitle" ($subject). Open Results to see the full '
           'breakdown.',
       type: 'result',
@@ -265,7 +290,8 @@ class AppNotifications {
   static Future<void> onAttendanceMarked({
     required String className,
     required String dateLabel, // e.g. "Monday, Dec 9"
-    required Map<String, String> statusByStudentId, // uid → 'absent'|'late'|'present'
+    required Map<String, String>
+    statusByStudentId, // uid → 'absent'|'late'|'present'
     required Map<String, String> studentNamesById,
   }) async {
     final batch = _db.batch();
@@ -283,7 +309,8 @@ class AppNotifications {
         batch.set(ref, {
           'uid': uid,
           'title': '⚠️ Attendance: Marked Absent',
-          'body': 'You have been marked absent for $className on $dateLabel. '
+          'body':
+              'You have been marked absent for $className on $dateLabel. '
               'If this is incorrect, please contact your class teacher '
               'promptly.',
           'type': 'attendance',
@@ -297,7 +324,8 @@ class AppNotifications {
         batch.set(ref, {
           'uid': uid,
           'title': '⏰ Attendance: Marked Late',
-          'body': 'You have been marked late for $className on $dateLabel. '
+          'body':
+              'You have been marked late for $className on $dateLabel. '
               'Repeated late arrivals may affect your attendance record.',
           'type': 'attendance',
           'isRead': false,
@@ -320,9 +348,9 @@ class AppNotifications {
               : '⏰ $name Was Late Today',
           body: status == 'absent'
               ? '$name has been marked absent for $className on $dateLabel. '
-                  'Please ensure regular attendance.'
+                    'Please ensure regular attendance.'
               : '$name was marked late for $className on $dateLabel. '
-                  'Please encourage punctuality.',
+                    'Please encourage punctuality.',
           type: 'attendance',
         );
       }
@@ -343,7 +371,9 @@ class AppNotifications {
     // Chunk into groups of 10 (Firestore whereIn limit)
     for (var i = 0; i < studentIds.length; i += 10) {
       final chunk = studentIds.sublist(
-          i, i + 10 > studentIds.length ? studentIds.length : i + 10);
+        i,
+        i + 10 > studentIds.length ? studentIds.length : i + 10,
+      );
 
       final links = await _db
           .collection('parent_children')
@@ -352,8 +382,10 @@ class AppNotifications {
 
       if (links.docs.isEmpty) continue;
 
-      final parentIds =
-          links.docs.map((d) => d.data()['parentId'] as String?).whereType<String>().toSet();
+      final parentIds = links.docs
+          .map((d) => d.data()['parentId'] as String?)
+          .whereType<String>()
+          .toSet();
 
       final batch = _db.batch();
       for (final parentId in parentIds) {

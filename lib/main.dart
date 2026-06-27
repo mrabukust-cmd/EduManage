@@ -19,6 +19,7 @@ import 'core/theme/app_theme.dart';
 import 'data/services/notification_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'firebase_options.dart';
+import 'package:school_management_system/data/services/local_notification_service.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -39,6 +40,7 @@ void main() async {
   );
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+ await LocalNotificationService.instance.initialize();
 
   // ── MUST be registered before runApp ─────────────────────────────────────
   // Handles FCM messages when the app is in the background or terminated.
@@ -151,10 +153,12 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
       if (uid != null && uid != _initializedForUid) {
         _initializedForUid = uid;
         NotificationService.instance.initialize();
+        LocalNotificationService.instance.startListening(uid);
       }
 
       if (uid == null) {
         _initializedForUid = null;
+          LocalNotificationService.instance.stopListening();
       }
     });
 

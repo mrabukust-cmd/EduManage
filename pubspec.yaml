@@ -58,6 +58,8 @@ dependencies:
   firebase_messaging: ^16.4.0
   firebase_messaging_web: ^4.2.1
   firebase_messaging_handler: ^1.0.6
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
 
 dev_dependencies:
   flutter_test:
