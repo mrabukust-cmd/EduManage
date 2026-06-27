@@ -36,11 +36,11 @@ class AppNotifications {
 
     // NEW: Also show as a popup banner on THIS device
     // (shows for the currently logged-in user)
-  //   await LocalNotificationService.instance.show(
-  //     title: title,
-  //     body: body,
-  //     type: type,
-  //   );
+    //   await LocalNotificationService.instance.show(
+    //     title: title,
+    //     body: body,
+    //     type: type,
+    //   );
   }
 
   /// Sends the same notification to every user whose `role` is in [roles].
@@ -51,33 +51,31 @@ class AppNotifications {
     String type = 'general',
   }) async {
     for (final role in roles) {
-      final users = await _db
-          .collection('users')
-          .where('role', isEqualTo: role)
-          .where('approved', isEqualTo: true)
-          .get();
+      try {
+        final users = await _db
+            .collection('users')
+            .where('role', isEqualTo: role)
+            .where('approved', isEqualTo: true)
+            .get();
 
-      final batch = _db.batch();
-      for (final doc in users.docs) {
-        final ref = _db.collection('notifications').doc();
-        batch.set(ref, {
-          'uid': doc.id,
-          'title': title,
-          'body': body,
-          'type': type,
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        for (final doc in users.docs) {
+          try {
+            await _db.collection('notifications').add({
+              'uid': doc.id,
+              'title': title,
+              'body': body,
+              'type': type,
+              'isRead': false,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          } catch (e) {
+            // skip this user, continue others
+          }
+        }
+      } catch (e) {
+        // skip this role
       }
-      await batch.commit();
     }
-
-    // NEW: Show popup on current device
-  //   await LocalNotificationService.instance.show(
-  //     title: title,
-  //     body: body,
-  //     type: type,
-  //   );
   }
 
   // ── Admin adds a teacher ─────────────────────────────────────────────────
@@ -162,6 +160,7 @@ class AppNotifications {
   // ── User self-registers ──────────────────────────────────────────────────
 
   /// Notifies all admins that a new user has registered and needs approval.
+  // ── User self-registers ──────────────────────────────────────────────────────
   static Future<void> onUserRegistered({
     required String userName,
     required String role,
@@ -169,28 +168,28 @@ class AppNotifications {
   }) async {
     final roleLabel = _roleLabel(role);
 
-    // Find all admin uids
-    final admins = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'admin')
-        .get();
+    try {
+      final admins = await _db
+          .collection('users')
+          .where('role', isEqualTo: 'admin')
+          .get();
 
-    final batch = _db.batch();
-    for (final admin in admins.docs) {
-      final ref = _db.collection('notifications').doc();
-      batch.set(ref, {
-        'uid': admin.id,
-        'title': 'New Registration Pending Approval 🔔',
-        'body':
-            '$userName has registered as a $roleLabel ($email) and is '
-            'waiting for your approval. Go to Approvals to review their '
-            'request.',
-        'type': 'registration',
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // Use a batch but write each doc separately to avoid permission issues
+      for (final admin in admins.docs) {
+        await _db.collection('notifications').add({
+          'uid': admin.id,
+          'title': 'New Registration Pending Approval 🔔',
+          'body':
+              '$userName has registered as a $roleLabel ($email) and is '
+              'waiting for your approval. Go to Approvals to review.',
+          'type': 'registration',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      // ignore — non-fatal
     }
-    await batch.commit();
   }
 
   // ── Teacher posts an assignment ──────────────────────────────────────────
@@ -368,7 +367,6 @@ class AppNotifications {
   }) async {
     if (studentIds.isEmpty) return;
 
-    // Chunk into groups of 10 (Firestore whereIn limit)
     for (var i = 0; i < studentIds.length; i += 10) {
       final chunk = studentIds.sublist(
         i,
@@ -387,19 +385,21 @@ class AppNotifications {
           .whereType<String>()
           .toSet();
 
-      final batch = _db.batch();
       for (final parentId in parentIds) {
-        final ref = _db.collection('notifications').doc();
-        batch.set(ref, {
-          'uid': parentId,
-          'title': title,
-          'body': body,
-          'type': type,
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        // Write one by one so a single failure doesn't block others
+        try {
+          await _db.collection('notifications').add({
+            'uid': parentId,
+            'title': title,
+            'body': body,
+            'type': type,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } catch (e) {
+          // ignore individual failures
+        }
       }
-      await batch.commit();
     }
   }
 
