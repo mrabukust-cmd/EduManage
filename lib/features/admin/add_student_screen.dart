@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/notification_helper.dart';
 import 'package:school_management_system/core/widgets/class_dropdown.dart';
 import 'package:school_management_system/core/widgets/custom_button.dart';
 import 'package:school_management_system/core/widgets/custom_text_field.dart';
@@ -24,13 +26,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _contactCtrl = TextEditingController();
 
   String? _selectedClass;
-
-  // Non-binding preview shown while the admin fills in the form.
-  // The real number is reserved only when _saveStudent() runs the
-  // Firestore transaction via RollNumberService.nextRollNo().
   String _rollPreview = '—';
   bool _loadingPreview = false;
-
   bool _isSaving = false;
 
   @override
@@ -42,16 +39,12 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     super.dispose();
   }
 
-  // ── class selection ───────────────────────────────────────────────────────
-
   Future<void> _onClassChanged(String? className) async {
     setState(() {
       _selectedClass = className;
       _rollPreview = '—';
     });
-
     if (className == null || className.isEmpty) return;
-
     setState(() => _loadingPreview = true);
     final preview =
         await RollNumberService.instance.peekNextRollNo(className);
@@ -62,8 +55,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       });
     }
   }
-
-  // ── save ──────────────────────────────────────────────────────────────────
 
   Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) return;
@@ -76,9 +67,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
     setState(() => _isSaving = true);
 
-    // Step 1 — Atomically reserve the next roll number for this class.
-    // If the subsequent Auth/Firestore writes fail, the counter has
-    // already advanced (a gap), but no two students ever share a number.
     String rollNo;
     try {
       rollNo = await RollNumberService.instance.nextRollNo(_selectedClass!);
@@ -95,16 +83,16 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       return;
     }
 
-    // Step 2 — Create Auth account + Firestore docs via existing notifier.
+    final name = _nameCtrl.text.trim();
     final error = await ref.read(authProvider.notifier).adminCreateUser(
-          name: _nameCtrl.text.trim(),
+          name: name,
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
           role: 'student',
           extraData: {
             'rollNo': rollNo,
             'class': _selectedClass,
-            'section': '', // schema compat; section is encoded in class name
+            'section': '',
             'contact': _contactCtrl.text.trim(),
           },
         );
@@ -119,20 +107,35 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       return;
     }
 
+    // ── Notify the newly created student ─────────────────────────────────
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('students')
+          .where('email', isEqualTo: _emailCtrl.text.trim())
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        await AppNotifications.onStudentAdded(
+          studentUid: snap.docs.first.id,
+          studentName: name,
+          className: _selectedClass!,
+          rollNo: rollNo,
+        );
+      }
+    } catch (_) {
+      // Non-fatal — student account was created successfully.
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-            '${_nameCtrl.text.trim()} added — Roll No $rollNo'),
+        content: Text('$name added — Roll No $rollNo'),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
     context.pop();
   }
-
-  // ── build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +158,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Info banner ──────────────────────────────────
+              // Info banner
               Container(
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 24),
@@ -184,7 +187,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ),
               ),
 
-              // ── Name ─────────────────────────────────────────
               CustomTextField(
                 label: 'Full Name',
                 controller: _nameCtrl,
@@ -193,8 +195,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     v == null || v.trim().isEmpty ? 'Name required' : null,
               ),
               const SizedBox(height: 16),
-
-              // ── Email ─────────────────────────────────────────
               CustomTextField(
                 label: 'Email Address',
                 controller: _emailCtrl,
@@ -207,8 +207,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // ── Password ──────────────────────────────────────
               CustomTextField(
                 label: 'Login Password',
                 hint: 'Min. 6 characters',
@@ -222,8 +220,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // ── Class + auto roll preview ─────────────────────
               ClassDropdownField(
                 value: _selectedClass,
                 onChanged: _onClassChanged,
@@ -235,8 +231,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 hasClass: _selectedClass != null,
               ),
               const SizedBox(height: 16),
-
-              // ── Contact ───────────────────────────────────────
               CustomTextField(
                 label: 'Contact',
                 controller: _contactCtrl,
@@ -244,8 +238,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 prefixIcon: Icons.phone_rounded,
               ),
               const SizedBox(height: 28),
-
-              // ── Submit ────────────────────────────────────────
               CustomButton(
                 label: 'Create Student Account',
                 isLoading: _isSaving,
@@ -259,8 +251,6 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     );
   }
 }
-
-// ── Roll preview chip ─────────────────────────────────────────────────────────
 
 class _RollPreviewChip extends StatelessWidget {
   final String preview;
