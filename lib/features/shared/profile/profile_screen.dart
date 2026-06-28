@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/services/cloudinary_service.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,8 +171,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (uid == null) return;
 
       final file = File(picked.path);
-      final ref2 = FirebaseStorage.instance.ref('profile_photos/$uid/avatar.jpg');
-      await ref2.putFile(file);
+ Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+      maxWidth: 800,    // reduce bandwidth before upload
+      maxHeight: 800,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final uid = ref.read(authProvider).user?.uid;
+      if (uid == null) return;
+
+      // ── Upload to Cloudinary ────────────────────────────────
+      final url = await CloudinaryService.instance.uploadProfilePhoto(
+        file: File(picked.path),
+        uid: uid,
+      );
+
+      // ── Save URL to Firestore + Firebase Auth ───────────────
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'photoUrl': url});
+      await FirebaseAuth.instance.currentUser?.updatePhotoURL(url);
+
+      ref.invalidate(_profileProvider);
+
+      if (mounted) _showSnack('Profile photo updated', AppColors.success);
+    } catch (e) {
+      if (mounted) _showSnack('Upload failed: $e', AppColors.danger);
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+     await ref2.putFile(file);
       final url = await ref2.getDownloadURL();
 
       await FirebaseFirestore.instance
@@ -1021,3 +1058,15 @@ class _ClassChip extends StatelessWidget {
     );
   }
 }
+
+ //STEP 7 ─ Display the Cloudinary URL anywhere an image is shown
+// ──────────────────────────────────────────────────────────────
+// The URL returned is a standard HTTPS link — just pass it to Image.network:
+//
+//   Image.network(
+//     profile.photoUrl,
+//     fit: BoxFit.cover,
+//     // Add a resize transformation right in the URL for thumbnails:
+//     // replace '/upload/' with '/upload/w_100,h_100,c_fill,g_face/'
+//     errorBuilder: (_, __, ___) => _avatarFallback(profile.name),
+//   )
