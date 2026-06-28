@@ -112,7 +112,7 @@ class _FeeNotificationOverlayState extends State<FeeNotificationOverlay>
           if (ts == null) continue;
 
           final age = DateTime.now().difference(ts.toDate()).inSeconds;
-          if (age > 30) continue; // skip old ones
+          if (age > 300) continue; // skip old ones
 
           final notif = _FeeNotif(
             docId: change.doc.id,

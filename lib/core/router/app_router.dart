@@ -17,6 +17,7 @@ import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/auth/screens/waiting_approval_screen.dart';
 import 'package:school_management_system/features/parents/parent_fee_screen.dart';
+import 'package:school_management_system/features/parents/parent_notifications_screen.dart';
 import 'package:school_management_system/features/shared/about/about_app_screen.dart';
 import 'package:school_management_system/features/shared/about/privacy%20_policy_screen.dart';
 import 'package:school_management_system/features/shared/about/terms_of_services.dart';
@@ -259,6 +260,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'results',
             builder: (_, __) => const ParentResultsScreen(),
+          ),
+          GoRoute(
+            path: '/parent/notifications',
+            builder: (_, __) => const ParentNotificationsScreen(),
           ),
           GoRoute(
             path: 'fees',

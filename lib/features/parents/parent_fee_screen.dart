@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/services/notification_helper.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 // ── Route: /parent/home/fees
@@ -985,33 +986,15 @@ class _PaymentProofSheetState extends State<_PaymentProofSheet> {
       });
 
       // ── Notify all admins ──────────────────────────────────────────────
-      try {
-        final admins = await FirebaseFirestore.instance
-            .collection('users')
-            .where('role', isEqualTo: 'admin')
-            .get();
-
-        final batch = FirebaseFirestore.instance.batch();
-        for (final admin in admins.docs) {
-          final ref =
-              FirebaseFirestore.instance.collection('notifications').doc();
-          batch.set(ref, {
-            'uid': admin.id,
-            'title': '💳 Fee Payment Submitted',
-            'body':
-                '${widget.studentName} — ${widget.feeType} payment of Rs. ${NumberFormat('#,##0').format(paidAmount)} submitted. '
-                'Transaction ID: ${_txnCtrl.text.trim()}. '
-                'Tap to verify.',
-            'type': 'finance',
-            'isRead': false,
-            'feeDocId': widget.docId,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        }
-        await batch.commit();
-      } catch (_) {
-        // Non-fatal.
-      }
+       try {
+    await AppNotifications.onFeePaymentSubmitted(
+      studentName: widget.studentName,
+      feeType: widget.feeType,
+      paidAmount: paidAmount,
+      transactionId: _txnCtrl.text.trim(),
+      feeDocId: widget.docId,
+    );
+  } catch (_) { }
 
       if (mounted) {
         Navigator.pop(context);

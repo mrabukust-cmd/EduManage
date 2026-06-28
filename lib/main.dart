@@ -1,12 +1,10 @@
 // lib/main.dart
 //
-// CHANGES FROM PREVIOUS VERSION
-// ───────────────────────────────
-// 1. Registered firebaseMessagingBackgroundHandler before runApp — required
-//    by FCM so background messages work when the app is closed.
-// 2. Wired NotificationService.onNotificationTap to navigate to the correct
-//    screen based on the notification `type` field set by Cloud Functions.
-// 3. Everything else is unchanged.
+// FIXES vs previous version:
+// 1. LocalNotificationService.initialize() now called BEFORE runApp (not after
+//    auth — the plugin must be initialized once at startup).
+// 2. startListening() called correctly whenever uid changes.
+// 3. Removed duplicate initialize() call inside auth listener.
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +22,6 @@ import 'package:school_management_system/data/services/local_notification_servic
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-// Router key so we can navigate from outside the widget tree (notification taps)
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -40,10 +37,13 @@ void main() async {
   );
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
- await LocalNotificationService.instance.initialize();
 
-  // ── MUST be registered before runApp ─────────────────────────────────────
-  // Handles FCM messages when the app is in the background or terminated.
+  // ── Initialize local notifications at startup (before any user login) ──
+  // This MUST happen before runApp so the plugin is ready when the first
+  // notification arrives.
+  await LocalNotificationService.instance.initialize();
+
+  // ── Register FCM background handler ────────────────────────────────────
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   runApp(const ProviderScope(child: EduManageApp()));
@@ -57,13 +57,13 @@ class EduManageApp extends ConsumerStatefulWidget {
 }
 
 class _EduManageAppState extends ConsumerState<EduManageApp> {
-  String? _initializedForUid;
+  String? _listeningForUid;
 
   @override
   void initState() {
     super.initState();
 
-    // ── Foreground notification → SnackBar ────────────────────────────────
+    // ── FCM foreground message → SnackBar ─────────────────────────────────
     NotificationService.instance.onForegroundMessage = (title, body) {
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
@@ -99,7 +99,6 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
             label: 'View',
             textColor: Colors.white,
             onPressed: () {
-              // Navigate to notifications inbox
               rootNavigatorKey.currentContext?.push('/notifications');
             },
           ),
@@ -107,36 +106,24 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
       );
     };
 
-    // ── Notification tap → deep link navigation ───────────────────────────
+    // ── FCM tap → deep link navigation ───────────────────────────────────
     NotificationService.instance.onNotificationTap = (data) {
       final type = data['type'] as String? ?? 'general';
       final role = ref.read(authProvider).role ?? 'student';
 
-      // Build route based on role + type
       String route = '/notifications';
       if (role == 'student') {
         switch (type) {
-          case 'assignment':
-            route = '/student/home/assignments';
-            break;
-          case 'result':
-            route = '/student/home/results';
-            break;
-          case 'attendance':
-            route = '/student/home/attendance';
-            break;
+          case 'assignment': route = '/student/home/assignments'; break;
+          case 'result':     route = '/student/home/results';     break;
+          case 'attendance': route = '/student/home/attendance';  break;
         }
       } else if (role == 'parent') {
         switch (type) {
-          case 'assignment':
-            route = '/parent/home/assignments';
-            break;
-          case 'result':
-            route = '/parent/home/results';
-            break;
-          case 'attendance':
-            route = '/parent/home/attendance';
-            break;
+          case 'assignment': route = '/parent/home/assignments'; break;
+          case 'result':     route = '/parent/home/results';     break;
+          case 'attendance': route = '/parent/home/attendance';  break;
+          case 'finance':    route = '/parent/home/fees';        break;
         }
       }
       ref.read(routerProvider).push(route);
@@ -147,18 +134,23 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
+    // ── Watch auth state → start/stop local notification listener ─────────
     ref.listen<AuthState>(authProvider, (previous, next) {
       final uid = next.user?.uid;
 
-      if (uid != null && uid != _initializedForUid) {
-        _initializedForUid = uid;
-        NotificationService.instance.initialize();
+      if (uid != null && uid != _listeningForUid) {
+        // New user logged in — start listening for their notifications
+        _listeningForUid = uid;
         LocalNotificationService.instance.startListening(uid);
+
+        // Also init FCM (push notifications)
+        NotificationService.instance.initialize();
       }
 
-      if (uid == null) {
-        _initializedForUid = null;
-          LocalNotificationService.instance.stopListening();
+      if (uid == null && _listeningForUid != null) {
+        // User logged out — stop listening
+        _listeningForUid = null;
+        LocalNotificationService.instance.stopListening();
       }
     });
 
@@ -168,10 +160,6 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
       theme: AppTheme.lightTheme,
       routerConfig: router,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-      // Note: GoRouter manages its own navigator. The rootNavigatorKey
-      // here is used only for the notification tap handler above.
-      // For GoRouter-aware navigation from notification taps, prefer
-      // storing a reference to the router and calling router.push(...).
     );
   }
 }

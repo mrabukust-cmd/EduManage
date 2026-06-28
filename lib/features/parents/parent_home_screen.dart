@@ -21,7 +21,7 @@ class ParentHomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _ParentHeader(userName: parentName)),
+            SliverToBoxAdapter(child: _ParentHeader(userName: parentName, uid: uid)),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
             // Children cards
@@ -108,12 +108,12 @@ class ParentHomeScreen extends ConsumerWidget {
 
   Widget _buildStaticActions(BuildContext context, String? childClass) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: 1,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.2,
       children: [
         _QuickCard(
           icon: Icons.how_to_reg_rounded,
@@ -208,12 +208,12 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.count(
-        crossAxisCount: 3,
+        crossAxisCount: 2,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.5,
         children: [
           _QuickCard(
             icon: Icons.how_to_reg_rounded,
@@ -262,7 +262,8 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
 // ── Header ────────────────────────────────────────────────────────────────────
 class _ParentHeader extends StatelessWidget {
   final String userName;
-  const _ParentHeader({required this.userName});
+  final String? uid;
+  const _ParentHeader({required this.userName, this.uid});
 
   @override
   Widget build(BuildContext context) {
@@ -305,13 +306,52 @@ class _ParentHeader extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => context.push('/parent/notifications'),
-            icon: const Icon(
-              Icons.notifications_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
+          // Replace the bell IconButton in _ParentHeader with this:
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('notifications')
+                .where('uid', isEqualTo: uid) // pass uid into _ParentHeader
+                .where('isRead', isEqualTo: false)
+                .snapshots(),
+            builder: (context, snap) {
+              final unread = snap.data?.docs.length ?? 0;
+              return Stack(
+                children: [
+                  IconButton(
+                    onPressed: () => context.push('/parent/notifications'),
+                    icon: const Icon(
+                      Icons.notifications_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: const BoxDecoration(
+                          color: AppColors.danger,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            unread > 9 ? '9+' : '$unread',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           GestureDetector(
             onTap: () => context.push('/parent/home/profile'),

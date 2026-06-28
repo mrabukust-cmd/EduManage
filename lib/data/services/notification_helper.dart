@@ -1,27 +1,30 @@
+// lib/data/services/notification_helper.dart
+//
+// ADDITIONS vs previous version:
+// 1. onFeePaymentVerified()  — admin approves → notifies parent
+// 2. onFeePaymentRejected()  — admin rejects  → notifies parent
+// 3. onFeePaymentSubmitted() — parent pays     → notifies ALL admins
+//    (was inline in parent_fee_screen.dart — centralised here so the
+//     local notification popup fires reliably)
+// 4. onAttendanceMarked() unchanged but kept for completeness.
+// 5. onGradeRecorded()    unchanged but kept for completeness.
+// 6. onNoticePublished()  unchanged but kept for completeness.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Centralized notification writer.
-///
-/// Every public method writes one or more documents to the `notifications`
-/// Firestore collection. NotificationsScreen streams that collection for
-/// in-app delivery. FCM push delivery follows via a Cloud Function
-/// (when configured) that reads the same documents.
-///
-/// Notification types map to icons/colours in NotificationsScreen:
-///   general | exam | finance | attendance | assignment | result |
-///   approval | registration | holiday
 class AppNotifications {
   AppNotifications._();
 
   static final _db = FirebaseFirestore.instance;
 
-  // ── Low-level write ──────────────────────────────────────────────────────
+  // ── Low-level: write one notification doc ────────────────────────────────
 
   static Future<void> _send({
     required String uid,
     required String title,
     required String body,
     String type = 'general',
+    Map<String, dynamic> extra = const {},
   }) async {
     await _db.collection('notifications').add({
       'uid': uid,
@@ -30,10 +33,11 @@ class AppNotifications {
       'type': type,
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
+      ...extra,
     });
   }
 
-  /// Sends the same notification to every user whose `role` is in [roles].
+  /// Broadcast to all approved users with one of [roles].
   static Future<void> _broadcast({
     required List<String> roles,
     required String title,
@@ -63,45 +67,282 @@ class AppNotifications {
     }
   }
 
-  // ── Admin adds a teacher ─────────────────────────────────────────────────
+  // ── Helper: notify all admins ─────────────────────────────────────────────
 
-  /// Notifies the newly-created teacher that their account is ready.
-  static Future<void> onTeacherAdded({
-    required String teacherUid,
-    required String teacherName,
+  static Future<void> _notifyAllAdmins({
+    required String title,
+    required String body,
+    String type = 'general',
+    Map<String, dynamic> extra = const {},
   }) async {
-    await _send(
-      uid: teacherUid,
-      title: 'Welcome to EduManage! 🎉',
-      body: 'Hi $teacherName, your teacher account has been created by the '
-          'admin. You can now log in and start managing your classes, '
-          'attendance, and assignments.',
-      type: 'general',
+    final admins = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'admin')
+        .get();
+
+    final batch = _db.batch();
+    for (final doc in admins.docs) {
+      final ref = _db.collection('notifications').doc();
+      batch.set(ref, {
+        'uid': doc.id,
+        'title': title,
+        'body': body,
+        'type': type,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        ...extra,
+      });
+    }
+    await batch.commit();
+  }
+
+  // ── Helper: notify parents of a student ──────────────────────────────────
+
+  static Future<void> _notifyParentsOfStudents({
+    required List<String> studentIds,
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    if (studentIds.isEmpty) return;
+
+    for (var i = 0; i < studentIds.length; i += 10) {
+      final chunk = studentIds.sublist(
+          i, (i + 10).clamp(0, studentIds.length));
+
+      final links = await _db
+          .collection('parent_children')
+          .where('studentId', whereIn: chunk)
+          .get();
+
+      if (links.docs.isEmpty) continue;
+
+      final parentIds = links.docs
+          .map((d) => d.data()['parentId'] as String?)
+          .whereType<String>()
+          .toSet();
+
+      final batch = _db.batch();
+      for (final parentId in parentIds) {
+        final ref = _db.collection('notifications').doc();
+        batch.set(ref, {
+          'uid': parentId,
+          'title': title,
+          'body': body,
+          'type': type,
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // FEE NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Parent submits payment proof → notify ALL admins.
+  /// Call this from parent_fee_screen.dart instead of the inline batch write.
+  static Future<void> onFeePaymentSubmitted({
+    required String studentName,
+    required String feeType,
+    required double paidAmount,
+    required String transactionId,
+    required String feeDocId,
+  }) async {
+    await _notifyAllAdmins(
+      title: '💳 Fee Payment Submitted — Action Required',
+      body: '$studentName submitted $feeType payment of '
+          'Rs. ${paidAmount.toStringAsFixed(0)}. '
+          'TXN: $transactionId. Tap to verify.',
+      type: 'finance',
+      extra: {'feeDocId': feeDocId},
     );
   }
 
-  // ── Admin adds a student ─────────────────────────────────────────────────
+  /// Admin approves a fee payment → notify parent.
+  static Future<void> onFeePaymentVerified({
+    required String parentUid,
+    required String studentName,
+    required String feeType,
+    required double paidAmount,
+  }) async {
+    await _send(
+      uid: parentUid,
+      title: '✅ Fee Payment Verified',
+      body: '$feeType payment of Rs. ${paidAmount.toStringAsFixed(0)} '
+          'for $studentName has been verified and marked as PAID by the admin.',
+      type: 'finance',
+    );
+  }
 
-  /// Notifies the newly-created student that their account is ready.
-  static Future<void> onStudentAdded({
+  /// Admin rejects a fee payment → notify parent.
+  static Future<void> onFeePaymentRejected({
+    required String parentUid,
+    required String studentName,
+    required String feeType,
+    String? reason,
+  }) async {
+    await _send(
+      uid: parentUid,
+      title: '❌ Payment Proof Rejected',
+      body: reason == null || reason.isEmpty
+          ? 'Your payment proof for $studentName ($feeType) was rejected. '
+            'Please re-submit with correct details.'
+          : 'Your payment proof for $studentName ($feeType) was rejected. '
+            'Reason: $reason. Please re-submit.',
+      type: 'finance',
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // ATTENDANCE NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Teacher submits attendance → notify absent/late students + their parents.
+  static Future<void> onAttendanceMarked({
+    required String className,
+    required String dateLabel,
+    required Map<String, String> statusByStudentId,
+    required Map<String, String> studentNamesById,
+  }) async {
+    final batch = _db.batch();
+    final absentOrLateIds = <String>[];
+
+    for (final entry in statusByStudentId.entries) {
+      final uid = entry.key;
+      final status = entry.value;
+      final name = studentNamesById[uid] ?? 'Student';
+
+      if (status == 'absent') {
+        absentOrLateIds.add(uid);
+        final ref = _db.collection('notifications').doc();
+        batch.set(ref, {
+          'uid': uid,
+          'title': '⚠️ Attendance: Marked Absent',
+          'body': 'You have been marked absent for $className on $dateLabel. '
+              'If this is incorrect, contact your class teacher.',
+          'type': 'attendance',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else if (status == 'late') {
+        absentOrLateIds.add(uid);
+        final ref = _db.collection('notifications').doc();
+        batch.set(ref, {
+          'uid': uid,
+          'title': '⏰ Attendance: Marked Late',
+          'body': 'You have been marked late for $className on $dateLabel.',
+          'type': 'attendance',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await batch.commit();
+
+    // Notify parents of absent/late students
+    for (final uid in absentOrLateIds) {
+      final status = statusByStudentId[uid]!;
+      final name = studentNamesById[uid] ?? 'Your child';
+      await _notifyParentsOfStudents(
+        studentIds: [uid],
+        title: status == 'absent'
+            ? '⚠️ $name Was Absent Today'
+            : '⏰ $name Was Late Today',
+        body: status == 'absent'
+            ? '$name has been marked absent for $className on $dateLabel.'
+            : '$name was marked late for $className on $dateLabel.',
+        type: 'attendance',
+      );
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // GRADE NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Teacher records a grade → notify student + parents.
+  static Future<void> onGradeRecorded({
     required String studentUid,
     required String studentName,
-    required String className,
-    required String rollNo,
+    required String subject,
+    required String examTitle,
+    required double percentage,
+    required String grade,
   }) async {
+    final emoji = percentage >= 80 ? '🌟' : percentage >= 60 ? '📊' : '📉';
+
     await _send(
       uid: studentUid,
-      title: 'Welcome to EduManage! 🎉',
-      body: 'Hi $studentName, your student account is ready. You have been '
-          'enrolled in $className with Roll No $rollNo. Log in to view '
-          'your timetable, assignments, and results.',
-      type: 'general',
+      title: '$emoji Result Posted: $subject — $examTitle',
+      body: 'Your $subject result for "$examTitle" has been recorded. '
+          'You scored $grade (${percentage.toStringAsFixed(1)}%). '
+          'Open Results to view the full breakdown.',
+      type: 'result',
+    );
+
+    await _notifyParentsOfStudents(
+      studentIds: [studentUid],
+      title: '$emoji $studentName\'s $subject Result: $grade',
+      body: '$studentName scored $grade (${percentage.toStringAsFixed(1)}%) '
+          'in "$examTitle" ($subject). Open Results to see the full breakdown.',
+      type: 'result',
     );
   }
 
-  // ── Admin publishes a notice ─────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // ASSIGNMENT NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
 
-  /// Broadcasts a notice to all approved students, teachers, and parents.
+  /// Teacher posts an assignment → notify students + parents in class.
+  static Future<void> onAssignmentPosted({
+    required String className,
+    required String subject,
+    required String assignmentTitle,
+    required String teacherName,
+    required String dueDate,
+  }) async {
+    final students = await _db
+        .collection('students')
+        .where('class', isEqualTo: className)
+        .get();
+
+    final studentIds = students.docs.map((d) => d.id).toList();
+
+    final batch = _db.batch();
+    for (final student in students.docs) {
+      final ref = _db.collection('notifications').doc();
+      batch.set(ref, {
+        'uid': student.id,
+        'title': '📝 New Assignment: $subject',
+        'body': '$teacherName posted "$assignmentTitle" for $className. '
+            'Due: $dueDate.',
+        'type': 'assignment',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+
+    if (studentIds.isNotEmpty) {
+      await _notifyParentsOfStudents(
+        studentIds: studentIds,
+        title: '📝 New Assignment for Your Child: $subject',
+        body: 'A new $subject assignment "$assignmentTitle" has been posted '
+            'for $className by $teacherName. Due: $dueDate.',
+        type: 'assignment',
+      );
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // NOTICE NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Admin publishes a notice → broadcast to all students, teachers, parents.
   static Future<void> onNoticePublished({
     required String noticeTitle,
     required String noticeBody,
@@ -120,272 +361,78 @@ class AppNotifications {
     );
   }
 
-  // ── Admin approves a user ────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // ACCOUNT NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════════
 
-  /// Notifies the approved user their account is active.
   static Future<void> onUserApproved({
     required String userUid,
     required String userName,
     required String role,
   }) async {
-    final roleLabel = _roleLabel(role);
     await _send(
       uid: userUid,
       title: 'Account Approved ✅',
-      body: 'Good news, $userName! Your $roleLabel account has been approved '
-          'by the school administrator. You can now log in and access all '
-          'features available to you.',
+      body: 'Good news, $userName! Your ${_roleLabel(role)} account has been '
+          'approved by the school administrator.',
       type: 'approval',
     );
   }
 
-  // ── User self-registers ──────────────────────────────────────────────────
-
-  /// Notifies all admins that a new user has registered and needs approval.
   static Future<void> onUserRegistered({
     required String userName,
     required String role,
     required String email,
   }) async {
-    final roleLabel = _roleLabel(role);
-
-    // Find all admin uids
-    final admins = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'admin')
-        .get();
-
-    final batch = _db.batch();
-    for (final admin in admins.docs) {
-      final ref = _db.collection('notifications').doc();
-      batch.set(ref, {
-        'uid': admin.id,
-        'title': 'New Registration Pending Approval 🔔',
-        'body': '$userName has registered as a $roleLabel ($email) and is '
-            'waiting for your approval. Go to Approvals to review their '
-            'request.',
-        'type': 'registration',
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
+    await _notifyAllAdmins(
+      title: 'New Registration Pending Approval 🔔',
+      body: '$userName has registered as a ${_roleLabel(role)} ($email) and '
+          'is waiting for your approval.',
+      type: 'registration',
+    );
   }
 
-  // ── Teacher posts an assignment ──────────────────────────────────────────
-
-  /// Notifies all students in [className] about a new assignment.
-  static Future<void> onAssignmentPosted({
-    required String className,
-    required String subject,
-    required String assignmentTitle,
+  static Future<void> onTeacherAdded({
+    required String teacherUid,
     required String teacherName,
-    required String dueDate, // formatted, e.g. "Dec 15"
   }) async {
-    // Get all students in this class
-    final students = await _db
-        .collection('students')
-        .where('class', isEqualTo: className)
-        .get();
-
-    // Also notify parents linked to those students
-    final studentIds = students.docs.map((d) => d.id).toList();
-
-    final batch = _db.batch();
-
-    // Notify students
-    for (final student in students.docs) {
-      final ref = _db.collection('notifications').doc();
-      batch.set(ref, {
-        'uid': student.id,
-        'title': '📝 New Assignment: $subject',
-        'body': '$teacherName has posted a new assignment "$assignmentTitle" '
-            'for $className. Due date: $dueDate. Open Assignments to view '
-            'the full details.',
-        'type': 'assignment',
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-
-    // Notify parents of those students
-    if (studentIds.isNotEmpty) {
-      await _notifyParentsOfStudents(
-        studentIds: studentIds,
-        title: '📝 New Assignment for Your Child: $subject',
-        body: 'A new $subject assignment "$assignmentTitle" has been posted '
-            'for $className by $teacherName. Due: $dueDate.',
-        type: 'assignment',
-      );
-    }
+    await _send(
+      uid: teacherUid,
+      title: 'Welcome to EduManage! 🎉',
+      body: 'Hi $teacherName, your teacher account has been created. '
+          'You can now log in and manage your classes.',
+      type: 'general',
+    );
   }
 
-  // ── Teacher records grades ───────────────────────────────────────────────
-
-  /// Notifies a student (and their parents) when a grade is recorded.
-  static Future<void> onGradeRecorded({
+  static Future<void> onStudentAdded({
     required String studentUid,
     required String studentName,
-    required String subject,
-    required String examTitle,
-    required double percentage,
-    required String grade,
+    required String className,
+    required String rollNo,
   }) async {
-    final emoji = percentage >= 80
-        ? '🌟'
-        : percentage >= 60
-            ? '📊'
-            : '📉';
-
-    // Notify student
     await _send(
       uid: studentUid,
-      title: '$emoji Result Posted: $subject — $examTitle',
-      body: 'Your $subject result for "$examTitle" has been recorded. '
-          'You scored $grade (${percentage.toStringAsFixed(1)}%). '
-          'Open Results to view the full breakdown.',
-      type: 'result',
-    );
-
-    // Notify parents
-    await _notifyParentsOfStudents(
-      studentIds: [studentUid],
-      title: '$emoji $studentName\'s $subject Result: $grade',
-      body: '$studentName scored $grade (${percentage.toStringAsFixed(1)}%) '
-          'in "$examTitle" ($subject). Open Results to see the full '
-          'breakdown.',
-      type: 'result',
+      title: 'Welcome to EduManage! 🎉',
+      body: 'Hi $studentName, your student account is ready. '
+          'You are enrolled in $className with Roll No $rollNo.',
+      type: 'general',
     );
   }
 
-  // ── Teacher submits attendance ───────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────────
 
-  /// Notifies absent/late students and their parents.
-  static Future<void> onAttendanceMarked({
-    required String className,
-    required String dateLabel, // e.g. "Monday, Dec 9"
-    required Map<String, String> statusByStudentId, // uid → 'absent'|'late'|'present'
-    required Map<String, String> studentNamesById,
-  }) async {
-    final batch = _db.batch();
-    final absentOrLateIds = <String>[];
+  static String _roleLabel(String role) => switch (role) {
+        'teacher' => 'teacher',
+        'parent'  => 'parent',
+        'admin'   => 'administrator',
+        _         => 'student',
+      };
 
-    for (final entry in statusByStudentId.entries) {
-      final uid = entry.key;
-      final status = entry.value;
-      final name = studentNamesById[uid] ?? 'Student';
-
-      if (status == 'absent') {
-        absentOrLateIds.add(uid);
-        // Notify student
-        final ref = _db.collection('notifications').doc();
-        batch.set(ref, {
-          'uid': uid,
-          'title': '⚠️ Attendance: Marked Absent',
-          'body': 'You have been marked absent for $className on $dateLabel. '
-              'If this is incorrect, please contact your class teacher '
-              'promptly.',
-          'type': 'attendance',
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      } else if (status == 'late') {
-        absentOrLateIds.add(uid);
-        // Notify student
-        final ref = _db.collection('notifications').doc();
-        batch.set(ref, {
-          'uid': uid,
-          'title': '⏰ Attendance: Marked Late',
-          'body': 'You have been marked late for $className on $dateLabel. '
-              'Repeated late arrivals may affect your attendance record.',
-          'type': 'attendance',
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-    }
-
-    await batch.commit();
-
-    // Notify parents of absent/late students
-    if (absentOrLateIds.isNotEmpty) {
-      for (final uid in absentOrLateIds) {
-        final status = statusByStudentId[uid]!;
-        final name = studentNamesById[uid] ?? 'Your child';
-        await _notifyParentsOfStudents(
-          studentIds: [uid],
-          title: status == 'absent'
-              ? '⚠️ $name Was Absent Today'
-              : '⏰ $name Was Late Today',
-          body: status == 'absent'
-              ? '$name has been marked absent for $className on $dateLabel. '
-                  'Please ensure regular attendance.'
-              : '$name was marked late for $className on $dateLabel. '
-                  'Please encourage punctuality.',
-          type: 'attendance',
-        );
-      }
-    }
-  }
-
-  // ── Internal helpers ─────────────────────────────────────────────────────
-
-  /// Notifies parents who have any of [studentIds] linked to their account.
-  static Future<void> _notifyParentsOfStudents({
-    required List<String> studentIds,
-    required String title,
-    required String body,
-    required String type,
-  }) async {
-    if (studentIds.isEmpty) return;
-
-    // Chunk into groups of 10 (Firestore whereIn limit)
-    for (var i = 0; i < studentIds.length; i += 10) {
-      final chunk = studentIds.sublist(
-          i, i + 10 > studentIds.length ? studentIds.length : i + 10);
-
-      final links = await _db
-          .collection('parent_children')
-          .where('studentId', whereIn: chunk)
-          .get();
-
-      if (links.docs.isEmpty) continue;
-
-      final parentIds =
-          links.docs.map((d) => d.data()['parentId'] as String?).whereType<String>().toSet();
-
-      final batch = _db.batch();
-      for (final parentId in parentIds) {
-        final ref = _db.collection('notifications').doc();
-        batch.set(ref, {
-          'uid': parentId,
-          'title': title,
-          'body': body,
-          'type': type,
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
-    }
-  }
-
-  static String _roleLabel(String role) {
-    return switch (role) {
-      'teacher' => 'teacher',
-      'parent' => 'parent',
-      'admin' => 'administrator',
-      _ => 'student',
-    };
-  }
-
-  static String _noticeType(String category) {
-    return switch (category.toLowerCase()) {
-      'exam' => 'exam',
-      'finance' => 'finance',
-      'holiday' => 'holiday',
-      _ => 'general',
-    };
-  }
+  static String _noticeType(String category) => switch (category.toLowerCase()) {
+        'exam'    => 'exam',
+        'finance' => 'finance',
+        'holiday' => 'holiday',
+        _         => 'general',
+      };
 }

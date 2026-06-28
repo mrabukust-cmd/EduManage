@@ -21,6 +21,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/services/notification_helper.dart';
 
 class FeeVerificationScreen extends StatefulWidget {
   const FeeVerificationScreen({super.key});
@@ -66,7 +67,9 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isSel ? Colors.white : Colors.white24,
                         borderRadius: BorderRadius.circular(20),
@@ -75,8 +78,7 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                         s,
                         style: AppTextStyles.labelSmall.copyWith(
                           color: isSel ? AppColors.warning : Colors.white,
-                          fontWeight:
-                              isSel ? FontWeight.w700 : FontWeight.w400,
+                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -98,10 +100,8 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
               double total = 0;
               for (final doc in snap.data!.docs) {
                 final data = doc.data() as Map<String, dynamic>;
-                final proof =
-                    data['paymentProof'] as Map<String, dynamic>?;
-                total +=
-                    (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
+                final proof = data['paymentProof'] as Map<String, dynamic>?;
+                total += (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
               }
               return Container(
                 margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -109,8 +109,7 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.info.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: AppColors.info.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.info.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -120,8 +119,11 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                         color: AppColors.info.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.pending_rounded,
-                          color: AppColors.info, size: 18),
+                      child: const Icon(
+                        Icons.pending_rounded,
+                        color: AppColors.info,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -130,8 +132,9 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                         children: [
                           Text(
                             '$count payment${count == 1 ? '' : 's'} awaiting verification',
-                            style: AppTextStyles.bodyMediumBold
-                                .copyWith(color: AppColors.info),
+                            style: AppTextStyles.bodyMediumBold.copyWith(
+                              color: AppColors.info,
+                            ),
                           ),
                           Text(
                             'Total: Rs. ${NumberFormat('#,##0').format(total)}',
@@ -173,8 +176,9 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                           _filter == 'Pending'
                               ? 'No payments awaiting verification.'
                               : 'No $_filter records found.',
-                          style: AppTextStyles.bodyMedium
-                              .copyWith(color: AppColors.textSecondary),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -182,19 +186,15 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                 }
 
                 return ListView.separated(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: 12),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
-                    final data =
-                        docs[i].data() as Map<String, dynamic>;
+                    final data = docs[i].data() as Map<String, dynamic>;
                     return _VerificationCard(
                       docId: docs[i].id,
                       data: data,
-                      onApprove: () =>
-                          _approve(context, docs[i].id, data),
+                      onApprove: () => _approve(context, docs[i].id, data),
                       onReject: () =>
                           _showRejectDialog(context, docs[i].id, data),
                     );
@@ -219,18 +219,15 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
       case 'Verified':
         return col
             .where('status', isEqualTo: 'paid')
-            .where('paymentProof', isNull: false)
-            .orderBy('createdAt', descending: true)
+            .orderBy('paidAt', descending: true)
             .snapshots();
       case 'Rejected':
         return col
             .where('status', isEqualTo: 'rejected')
-            .orderBy('createdAt', descending: true)
+            .orderBy('rejectedAt', descending: true)
             .snapshots();
       default:
-        return col
-            .orderBy('createdAt', descending: true)
-            .snapshots();
+        return col.orderBy('createdAt', descending: true).snapshots();
     }
   }
 
@@ -240,15 +237,11 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
     Map<String, dynamic> data,
   ) async {
     final proof = data['paymentProof'] as Map<String, dynamic>?;
-    final paidAmount =
-        (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
+    final paidAmount = (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
     final studentName = data['studentName'] as String? ?? '';
     final feeType = data['feeType'] as String? ?? 'Tuition';
 
-    await FirebaseFirestore.instance
-        .collection('fees')
-        .doc(docId)
-        .update({
+    await FirebaseFirestore.instance.collection('fees').doc(docId).update({
       'status': 'paid',
       'paidAt': FieldValue.serverTimestamp(),
       'verifiedAt': FieldValue.serverTimestamp(),
@@ -260,18 +253,12 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
     try {
       final parentUid = proof?['submittedBy'] as String?;
       if (parentUid != null && parentUid.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('notifications')
-            .add({
-          'uid': parentUid,
-          'title': '✅ Fee Payment Verified',
-          'body':
-              '$feeType payment of Rs. ${NumberFormat('#,##0').format(paidAmount)} for $studentName '
-              'has been verified and marked as PAID by the admin.',
-          'type': 'finance',
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        await AppNotifications.onFeePaymentVerified(
+          parentUid: parentUid,
+          studentName: studentName,
+          feeType: feeType,
+          paidAmount: paidAmount,
+        );
       }
     } catch (_) {}
 
@@ -279,11 +266,13 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '✅ Payment for $studentName verified and marked as Paid.'),
+            '✅ Payment for $studentName verified and marked as Paid.',
+          ),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -296,14 +285,14 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
   ) {
     final reasonCtrl = TextEditingController();
     final studentName = data['studentName'] as String? ?? '';
+    final feeType = data['feeType'] as String? ?? 'Tuition';
     final proof = data['paymentProof'] as Map<String, dynamic>?;
     final parentUid = proof?['submittedBy'] as String?;
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Reject Payment?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -311,8 +300,9 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
           children: [
             Text(
               'This will set the fee back to "pending" and notify the parent.',
-              style: AppTextStyles.labelSmall
-                  .copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -324,13 +314,11 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.divider),
+                  borderSide: const BorderSide(color: AppColors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.divider),
+                  borderSide: const BorderSide(color: AppColors.divider),
                 ),
               ),
             ),
@@ -345,7 +333,8 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.danger,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(context);
@@ -355,28 +344,22 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                   .collection('fees')
                   .doc(docId)
                   .update({
-                'status': 'pending',
-                'rejectionReason': reason.isEmpty ? null : reason,
-                'rejectedAt': FieldValue.serverTimestamp(),
-                'paymentProof': FieldValue.delete(),
-                'updatedAt': FieldValue.serverTimestamp(),
-              });
+                    'status': 'pending',
+                    'rejectionReason': reason.isEmpty ? null : reason,
+                    'rejectedAt': FieldValue.serverTimestamp(),
+                    'paymentProof': FieldValue.delete(),
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  });
 
               // Notify parent
               try {
                 if (parentUid != null && parentUid.isNotEmpty) {
-                  await FirebaseFirestore.instance
-                      .collection('notifications')
-                      .add({
-                    'uid': parentUid,
-                    'title': '❌ Payment Proof Rejected',
-                    'body': reason.isEmpty
-                        ? 'Your payment proof for $studentName was rejected. Please re-submit with correct details.'
-                        : 'Your payment proof for $studentName was rejected. Reason: $reason. Please re-submit.',
-                    'type': 'finance',
-                    'isRead': false,
-                    'createdAt': FieldValue.serverTimestamp(),
-                  });
+                  await AppNotifications.onFeePaymentRejected(
+                    parentUid: parentUid,
+                    studentName: studentName,
+                    feeType: feeType,
+                    reason: reason.isEmpty ? null : reason,
+                  );
                 }
               } catch (_) {}
 
@@ -384,11 +367,13 @@ class _FeeVerificationScreenState extends State<FeeVerificationScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Payment for $studentName rejected. Parent notified.'),
+                      'Payment for $studentName rejected. Parent notified.',
+                    ),
                     backgroundColor: AppColors.danger,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 );
               }
@@ -426,14 +411,11 @@ class _VerificationCard extends StatelessWidget {
     final year = data['year'] as int? ?? DateTime.now().year;
     final proof = data['paymentProof'] as Map<String, dynamic>?;
     final txnId = proof?['transactionId'] as String? ?? '—';
-    final paidAmount =
-        (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
-    final originalAmount =
-        (data['amount'] as num?)?.toDouble() ?? 0;
+    final paidAmount = (proof?['paidAmount'] as num?)?.toDouble() ?? 0;
+    final originalAmount = (data['amount'] as num?)?.toDouble() ?? 0;
     final paymentDate = proof?['paymentDate'] as String? ?? '—';
     final notes = proof?['notes'] as String? ?? '';
-    final submittedAt =
-        (proof?['submittedAt'] as Timestamp?)?.toDate();
+    final submittedAt = (proof?['submittedAt'] as Timestamp?)?.toDate();
     final isPending = status == 'pending_verification';
     final isPaid = status == 'paid';
     final isRejected = status == 'rejected';
@@ -441,8 +423,8 @@ class _VerificationCard extends StatelessWidget {
     final Color statusColor = isPaid
         ? AppColors.success
         : isRejected
-            ? AppColors.danger
-            : AppColors.info;
+        ? AppColors.danger
+        : AppColors.info;
 
     return Container(
       decoration: BoxDecoration(
@@ -463,9 +445,7 @@ class _VerificationCard extends StatelessWidget {
                   radius: 20,
                   backgroundColor: statusColor.withOpacity(0.12),
                   child: Text(
-                    studentName.isNotEmpty
-                        ? studentName[0].toUpperCase()
-                        : 'S',
+                    studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w700,
@@ -479,8 +459,7 @@ class _VerificationCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(studentName,
-                          style: AppTextStyles.bodyMediumBold),
+                      Text(studentName, style: AppTextStyles.bodyMediumBold),
                       Text(
                         '$className · $feeType · $month $year',
                         style: AppTextStyles.labelSmall,
@@ -508,15 +487,11 @@ class _VerificationCard extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                Container(
-                    width: 1,
-                    height: 40,
-                    color: AppColors.divider),
+                Container(width: 1, height: 40, color: AppColors.divider),
                 Expanded(
                   child: _InfoTile(
                     label: 'Amount Paid',
-                    value:
-                        'Rs. ${NumberFormat('#,##0').format(paidAmount)}',
+                    value: 'Rs. ${NumberFormat('#,##0').format(paidAmount)}',
                     icon: Icons.payments_rounded,
                     color: paidAmount >= originalAmount
                         ? AppColors.success
@@ -544,8 +519,7 @@ class _VerificationCard extends StatelessWidget {
                     isBold: true,
                   ),
                   const SizedBox(height: 6),
-                  _DetailRow(
-                      label: 'Payment Date', value: paymentDate),
+                  _DetailRow(label: 'Payment Date', value: paymentDate),
                   if (notes.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     _DetailRow(label: 'Notes', value: notes),
@@ -554,8 +528,9 @@ class _VerificationCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     _DetailRow(
                       label: 'Submitted',
-                      value: DateFormat('MMM d, yyyy · hh:mm a')
-                          .format(submittedAt),
+                      value: DateFormat(
+                        'MMM d, yyyy · hh:mm a',
+                      ).format(submittedAt),
                     ),
                   ],
                 ],
@@ -570,22 +545,27 @@ class _VerificationCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.warning.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: AppColors.warning.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: AppColors.warning, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Paid amount is less than fee amount by '
-                      'Rs. ${NumberFormat('#,##0').format(originalAmount - paidAmount)}.',
-                      style: AppTextStyles.labelTiny
-                          .copyWith(color: AppColors.warning),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppColors.warning,
+                      size: 16,
                     ),
-                  ),
-                ]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Paid amount is less than fee amount by '
+                        'Rs. ${NumberFormat('#,##0').format(originalAmount - paidAmount)}.',
+                        style: AppTextStyles.labelTiny.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
 
@@ -597,21 +577,24 @@ class _VerificationCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onReject,
-                      icon: const Icon(Icons.close_rounded,
-                          size: 16, color: AppColors.danger),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: AppColors.danger,
+                      ),
                       label: Text(
                         'Reject',
                         style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.danger,
-                            fontWeight: FontWeight.w700),
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: AppColors.danger),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.danger),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -620,20 +603,24 @@ class _VerificationCard extends StatelessWidget {
                     flex: 2,
                     child: ElevatedButton.icon(
                       onPressed: onApprove,
-                      icon: const Icon(Icons.check_rounded,
-                          size: 16, color: Colors.white),
+                      icon: const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
                       label: Text(
                         'Approve & Mark Paid',
                         style: AppTextStyles.labelSmall.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.success,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -660,8 +647,7 @@ class _StatusBadge extends StatelessWidget {
       _ => ('Unknown', AppColors.textSecondary),
     };
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
@@ -669,8 +655,10 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: AppTextStyles.labelTiny
-            .copyWith(color: color, fontWeight: FontWeight.w700),
+        style: AppTextStyles.labelTiny.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -680,31 +668,41 @@ class _InfoTile extends StatelessWidget {
   final String label, value;
   final IconData icon;
   final Color color;
-  const _InfoTile(
-      {required this.label,
-      required this.value,
-      required this.icon,
-      required this.color});
+  const _InfoTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Icon(icon, color: color, size: 20),
-      const SizedBox(height: 4),
-      Text(label, style: AppTextStyles.labelTiny),
-      const SizedBox(height: 2),
-      Text(value,
-          style: AppTextStyles.labelSmall
-              .copyWith(color: color, fontWeight: FontWeight.w700)),
-    ]);
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(label, style: AppTextStyles.labelTiny),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
   }
 }
 
 class _DetailRow extends StatelessWidget {
   final String label, value;
   final bool isBold;
-  const _DetailRow(
-      {required this.label, required this.value, this.isBold = false});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -715,16 +713,16 @@ class _DetailRow extends StatelessWidget {
           width: 110,
           child: Text(
             label,
-            style: AppTextStyles.labelTiny
-                .copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.labelTiny.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         Expanded(
           child: Text(
             value,
             style: AppTextStyles.labelTiny.copyWith(
-              fontWeight:
-                  isBold ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
               color: AppColors.textPrimary,
             ),
           ),
