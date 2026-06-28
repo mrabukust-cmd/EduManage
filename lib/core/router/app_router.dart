@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_management_system/features/admin/admin_home_screen.dart';
 import 'package:school_management_system/features/admin/class_seeder_screen.dart';
 import 'package:school_management_system/features/admin/classes/classes_screen.dart';
+import 'package:school_management_system/features/admin/fees/fee_verification_screen.dart';
 import 'package:school_management_system/features/admin/notices/notices_board_screen.dart';
 import 'package:school_management_system/features/admin/student_list.dart';
 import 'package:school_management_system/features/admin/teacher_list_screen.dart';
@@ -15,6 +16,7 @@ import 'package:school_management_system/features/admin/tools/class_name_merge_s
 import 'package:school_management_system/features/auth/register_screen.dart';
 import 'package:school_management_system/features/auth/screens/pending_approvel_screen.dart';
 import 'package:school_management_system/features/auth/screens/waiting_approval_screen.dart';
+import 'package:school_management_system/features/parents/parent_fee_screen.dart';
 import 'package:school_management_system/features/shared/about/about_app_screen.dart';
 import 'package:school_management_system/features/shared/about/privacy%20_policy_screen.dart';
 import 'package:school_management_system/features/shared/about/terms_of_services.dart';
@@ -46,21 +48,8 @@ import 'package:school_management_system/features/parents/parent_result.dart';
 import 'package:school_management_system/features/parents/parent_assignment.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
-// ── Router Provider ───────────────────────────────────────────────────────────
-//
-// KEY FIX: GoRouter is created once and stored in a ref.state (via a
-// StateProvider or a listenable). We use a GoRouter with a
-// refreshListenable so the router re-evaluates redirect() every time
-// authProvider changes — without this, the redirect only runs once at
-// startup and never again when login completes.
-//
-// The _RouterNotifier bridges Riverpod → ChangeNotifier so GoRouter
-// can listen to auth state changes.
-
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this._ref) {
-    // Listen to authProvider and notify GoRouter to re-run redirect()
-    // whenever auth state changes (login, logout, role set, etc.)
     _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
   }
 
@@ -74,12 +63,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/splash',
-    // refreshListenable makes GoRouter re-run redirect() whenever
-    // _RouterNotifier calls notifyListeners() — i.e. on every auth change.
     refreshListenable: notifier,
     redirect: (context, state) {
-      // Always read fresh state inside redirect — do NOT capture authState
-      // from outside this closure because it would be stale.
       final authState = notifier.authState;
 
       final isInitializing = authState.isInitializing;
@@ -94,27 +79,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onRegister = loc == '/register';
       final onPending = loc == '/pending';
 
-      // Hold all routing while we're loading role from Firestore on startup.
       if (isInitializing) return null;
 
-      // Always allow splash and onboarding through.
       if (onSplash || onBoarding) return null;
 
-      // Not logged in → send to login (unless already there or registering).
       if (!isLoggedIn && !onLogin && !onRegister) return '/login';
 
-      // Logged in but pending approval → send to pending screen.
       if (isLoggedIn && isPending && !onPending) return '/pending';
 
-      // Logged in, approved, on an auth screen → redirect to role home.
-      // This is the critical block that fires after login() completes and
-      // sets the role in authProvider. The redirect sees the new role and
-      // sends the user to the correct home screen.
       if (isLoggedIn && !isPending && (onLogin || onRegister || onPending)) {
         return _homeForRole(role);
       }
 
-      // Already on the right screen — no redirect needed.
       return null;
     },
     routes: [
@@ -163,6 +139,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'notices',
             builder: (_, __) => const NoticeBoardScreen(),
           ),
+          GoRoute(
+            path: 'fee-verification',
+            builder: (_, __) => const FeeVerificationScreen(),
+          ),
+          // GoRoute(
+          //   path: 'fees',
+          //   builder: (_, __) => const FeeManagementScreen(),
+          // ),
           GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
           GoRoute(
             path: 'approvals',
@@ -275,6 +259,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'results',
             builder: (_, __) => const ParentResultsScreen(),
+          ),
+          GoRoute(
+            path: 'fees',
+            builder: (_, __) => const ParentFeePaymentScreen(),
           ),
           GoRoute(
             path: 'notices',

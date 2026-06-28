@@ -141,7 +141,18 @@ class ParentHomeScreen extends ConsumerWidget {
           onTap: () =>
               context.push('/parent/home/timetable', extra: childClass),
         ),
-      
+        _QuickCard(
+          icon: Icons.assignment_rounded,
+          label: 'Assignments',
+          color: AppColors.accent,
+          onTap: () => context.push('/parent/home/assignments'),
+        ),
+        _QuickCard(
+          icon: Icons.receipt_long_rounded,
+          label: 'Pay Fees',
+          color: AppColors.warning,
+          onTap: () => context.push('/parent/home/fees'),
+        ),
       ],
     );
   }
@@ -197,12 +208,12 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.count(
-        crossAxisCount: 2,
+        crossAxisCount: 3,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.5,
+        childAspectRatio: 1.2,
         children: [
           _QuickCard(
             icon: Icons.how_to_reg_rounded,
@@ -230,12 +241,18 @@ class _QuickActionsWithChildState extends State<_QuickActionsWithChild> {
             onTap: () =>
                 context.push('/parent/home/timetable', extra: _childClass),
           ),
-            _QuickCard(
-          icon: Icons.assignment_rounded,
-          label: "Assignments",
-          color: AppColors.accent,
-          onTap: () => context.push('/parent/home/assignments'),
-        ),
+          _QuickCard(
+            icon: Icons.assignment_rounded,
+            label: "Assignments",
+            color: AppColors.accent,
+            onTap: () => context.push('/parent/home/assignments'),
+          ),
+          _QuickCard(
+            icon: Icons.receipt_long_rounded,
+            label: 'Pay Fees',
+            color: AppColors.warning,
+            onTap: () => context.push('/parent/home/fees'),
+          ),
         ],
       ),
     );
@@ -676,6 +693,9 @@ class _ParentBottomNav extends StatelessWidget {
             context.go('/parent/home/notices');
             break;
           case 4:
+            context.go('/parent/home/fees');
+            break; // NEW
+          case 5:
             context.go('/parent/home/profile');
             break;
         }
@@ -694,6 +714,10 @@ class _ParentBottomNav extends StatelessWidget {
           icon: Icon(Icons.campaign_rounded),
           label: 'Notices',
         ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.receipt_long_rounded),
+          label: 'Fees',
+        ), // NEW
         BottomNavigationBarItem(
           icon: Icon(Icons.person_rounded),
           label: 'Profile',

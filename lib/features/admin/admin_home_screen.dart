@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/features/admin/fees/fee_notification_overlay.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 // ── Activity event model ───────────────────────────────────────────────────────
@@ -55,80 +56,82 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: _AdminHeader(userName: user?.displayName ?? 'Admin'),
-            ),
-
-            // Stats
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: _StatsRow(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-            // ── Fee Alert Banner ──────────────────────────────────────────────
-            if (!_feePopupDismissed)
+    return FeeNotificationOverlay(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
               SliverToBoxAdapter(
-                child: _FeeAlertBanner(
-                  onDismiss: () => setState(() => _feePopupDismissed = true),
-                  onView: () => context.push('/admin/home/fees'),
+                child: _AdminHeader(userName: user?.displayName ?? 'Admin'),
+              ),
+      
+              // Stats
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: _StatsRow(),
                 ),
               ),
-
-            // Pending banner
-            SliverToBoxAdapter(child: _PendingApprovalsBanner()),
-
-            // Quick Actions label
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Text('Quick Actions', style: AppTextStyles.sectionTitle),
-              ),
-            ),
-
-            // Quick Actions — stretched full width
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _QuickActionsGrid(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-            // Recent Activity label
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Recent Activity', style: AppTextStyles.sectionTitle),
-                    TextButton(
-                      onPressed: () => context.push('/admin/home/history'),
-                      child: const Text('See all'),
-                    ),
-                  ],
+      
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      
+              // ── Fee Alert Banner ──────────────────────────────────────────────
+              if (!_feePopupDismissed)
+                SliverToBoxAdapter(
+                  child: _FeeAlertBanner(
+                    onDismiss: () => setState(() => _feePopupDismissed = true),
+                    onView: () => context.push('/admin/home/fees'),
+                  ),
+                ),
+      
+              // Pending banner
+              SliverToBoxAdapter(child: _PendingApprovalsBanner()),
+      
+              // Quick Actions label
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: Text('Quick Actions', style: AppTextStyles.sectionTitle),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-            SliverToBoxAdapter(child: _RecentActivityFeed(limit: 8)),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
+      
+              // Quick Actions — stretched full width
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _QuickActionsGrid(),
+                ),
+              ),
+      
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      
+              // Recent Activity label
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Recent Activity', style: AppTextStyles.sectionTitle),
+                      TextButton(
+                        onPressed: () => context.push('/admin/home/history'),
+                        child: const Text('See all'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+      
+              SliverToBoxAdapter(child: _RecentActivityFeed(limit: 8)),
+      
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
+          ),
         ),
+        bottomNavigationBar: const _AdminBottomNav(currentIndex: 0),
       ),
-      bottomNavigationBar: const _AdminBottomNav(currentIndex: 0),
     );
   }
 }
@@ -630,21 +633,12 @@ class _QuickActionsGrid extends StatelessWidget {
               _QA('Manage Classes', Icons.class_rounded, AppColors.adminColor, null),
               _QA('Timetable', Icons.calendar_month_rounded, AppColors.primary, null),
               _QA('Fees', Icons.attach_money_rounded, AppColors.warning, null),
+              _QA('Verify Fees', Icons.verified_rounded, AppColors.info, null),
               _QA('Notices', Icons.announcement_rounded, AppColors.accent, null),
-              _QA(
-                'Approvals',
-                Icons.fact_check_rounded,
-                pendingCount > 0 ? AppColors.danger : AppColors.success,
-                pendingCount > 0 ? '$pendingCount' : null,
-              ),
+              _QA('Approvals',Icons.fact_check_rounded,pendingCount > 0 ? AppColors.danger : AppColors.success,pendingCount > 0 ? '$pendingCount' : null,),
               _QA('Reports', Icons.bar_chart_rounded, AppColors.primary, null),
               _QA('Fix Classes', Icons.merge_type_rounded, AppColors.danger, null),
-              _QA(
-                'Setup Classes',
-                Icons.auto_fix_high_rounded,
-                hasClasses ? AppColors.textSecondary : AppColors.warning,
-                hasClasses ? null : '!',
-              ),
+              _QA('Setup Classes',Icons.auto_fix_high_rounded,hasClasses ? AppColors.textSecondary : AppColors.warning,hasClasses ? null : '!',),
               _QA('History', Icons.history_rounded, AppColors.info, null),
               _QA('Students', Icons.people_rounded, AppColors.studentColor, null),
             ];
@@ -737,6 +731,7 @@ class _QuickActionsGrid extends StatelessWidget {
       'Manage Classes': '/admin/home/classes',
       'Timetable': '/admin/home/timetable',
       'Fees': '/admin/home/fees',
+      'Verify Fees': '/admin/home/fee-verification',
       'Notices': '/admin/home/notices',
       'Approvals': '/admin/home/approvals',
       'Reports': '/admin/home/reports',
