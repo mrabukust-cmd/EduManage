@@ -161,73 +161,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
-    if (picked == null) return;
-
-    setState(() => _uploadingPhoto = true);
-    try {
-      final uid = ref.read(authProvider).user?.uid;
-      if (uid == null) return;
-
-      final file = File(picked.path);
- Future<void> _pickAndUploadPhoto() async {
-    final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 75,
-      maxWidth: 800,    // reduce bandwidth before upload
+      maxWidth: 800,
       maxHeight: 800,
     );
     if (picked == null) return;
 
+    if (!mounted) return;
     setState(() => _uploadingPhoto = true);
+
     try {
       final uid = ref.read(authProvider).user?.uid;
-      if (uid == null) return;
+      if (uid == null) {
+        if (mounted) {
+          _showSnack('Please sign in before updating your photo.', AppColors.danger);
+        }
+        return;
+      }
 
-      // ── Upload to Cloudinary ────────────────────────────────
+      final file = File(picked.path);
       final url = await CloudinaryService.instance.uploadProfilePhoto(
-        file: File(picked.path),
+        file: file,
         uid: uid,
       );
 
-      // ── Save URL to Firestore + Firebase Auth ───────────────
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'photoUrl': url});
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'photoUrl': url,
+      });
       await FirebaseAuth.instance.currentUser?.updatePhotoURL(url);
 
-      ref.invalidate(_profileProvider);
-
-      if (mounted) _showSnack('Profile photo updated', AppColors.success);
-    } catch (e) {
-      if (mounted) _showSnack('Upload failed: $e', AppColors.danger);
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
-  }
-     await ref2.putFile(file);
-      final url = await ref2.getDownloadURL();
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'photoUrl': url});
-      await FirebaseAuth.instance.currentUser?.updatePhotoURL(url);
-
-      // Invalidate provider so UI re-fetches
-      // ignore: unused_result
       ref.invalidate(_profileProvider);
 
       if (mounted) {
         _showSnack('Profile photo updated', AppColors.success);
       }
     } catch (e) {
-      if (mounted) _showSnack('Upload failed: $e', AppColors.danger);
+      if (mounted) {
+        _showSnack('Upload failed: $e', AppColors.danger);
+      }
     } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
+      if (mounted) {
+        setState(() => _uploadingPhoto = false);
+      }
     }
   }
 

@@ -42,16 +42,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-
-
-class CloudinaryConfig {
-  CloudinaryConfig._();
-  static const String cloudName    = 'dzwckhssd';   // replace
-  static const String uploadPreset = 'f9sr9yhz';  // replace
-  static String get uploadUrl =>
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload';
-}
-
+import 'package:school_management_system/core/constants/cloudinary_config.dart';
 
 class CloudinaryService {
   CloudinaryService._();
@@ -75,8 +66,7 @@ class CloudinaryService {
 
     final request = http.MultipartRequest('POST', uri)
       ..fields['upload_preset'] = CloudinaryConfig.uploadPreset
-      ..fields['public_id']     = 'profile_photos/$uid'
-      ..fields['overwrite']     = 'true'
+      ..fields['public_id'] = 'profile_photos/$uid'
       ..files.add(await http.MultipartFile.fromPath(
         'file',
         file.path,
