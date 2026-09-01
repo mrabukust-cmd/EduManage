@@ -225,7 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             return null;
                           },
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: AppDimensions.space32),
 
                         CustomButton(
                           label: 'Sign In',
@@ -233,27 +233,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           isLoading: authState.isLoading,
                           gradient: AppColors.primaryGradient,
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: AppDimensions.space32),
 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
+                            Text(
                               "Don't have an account? ",
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 14,
+                              style: AppTextStyles.bodyMedium.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             GestureDetector(
                               onTap: () => context.push('/register'),
-                              child: const Text(
+                              child: Text(
                                 'Create one',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                style: AppTextStyles.bodyMediumBold.copyWith(
                                   color: AppColors.primary,
                                 ),
                               ),

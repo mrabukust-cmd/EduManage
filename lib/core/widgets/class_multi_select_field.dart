@@ -187,34 +187,25 @@ class ClassMultiSelectField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.labelMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimensions.space8),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.warning.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
             border: Border.all(color: AppColors.warning.withOpacity(0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
-              SizedBox(width: 10),
+              const SizedBox(width: AppDimensions.space8 + AppDimensions.space2),
               Expanded(
                 child: Text(
                   'No classes exist yet. Create classes in Manage Classes first, '
                   'then assign them to this teacher.',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: AppTextStyles.labelSmall,
                 ),
               ),
             ],
