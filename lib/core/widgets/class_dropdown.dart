@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 
 /// Dropdown that lists every class name currently in the `classes`
 /// collection, in place of a free-text field.
@@ -68,27 +70,22 @@ class ClassDropdownField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
+              style: AppTextStyles.labelMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppDimensions.space8),
             DropdownButtonFormField<String>(
               initialValue: items.contains(value) ? value : null,
               decoration: _decor(),
               hint: Text(
                 'Select a class',
-                style: const TextStyle(fontFamily: 'Poppins', color: AppColors.textHint, fontSize: 14),
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
               ),
               items: items
                   .map((c) => DropdownMenuItem(
                         value: c,
                         child: Text(
                           c,
-                          style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
+                          style: AppTextStyles.bodyMedium,
                         ),
                       ))
                   .toList(),
@@ -109,19 +106,14 @@ class ClassDropdownField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.labelMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimensions.space8),
         Container(
           height: 54,
           decoration: BoxDecoration(
             color: AppColors.background,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
             border: Border.all(color: AppColors.divider),
           ),
           alignment: Alignment.center,
@@ -141,19 +133,14 @@ class ClassDropdownField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.labelMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimensions.space8),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.warning.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
             border: Border.all(color: AppColors.warning.withOpacity(0.3)),
           ),
           child: Row(
@@ -163,11 +150,7 @@ class ClassDropdownField extends StatelessWidget {
               Expanded(
                 child: Text(
                   'No classes exist yet. Create one in Manage Classes first, then come back here.',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: AppTextStyles.labelSmall,
                 ),
               ),
             ],
@@ -181,17 +164,20 @@ class ClassDropdownField extends StatelessWidget {
     return InputDecoration(
       filled: true,
       fillColor: AppColors.background,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.space16,
+        vertical: AppDimensions.space12,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
         borderSide: const BorderSide(color: AppColors.divider),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
         borderSide: const BorderSide(color: AppColors.divider),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
         borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
     );
