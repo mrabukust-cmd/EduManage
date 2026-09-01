@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -96,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
           ),
         ),
       );
@@ -125,8 +127,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   decoration: const BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(40),
-                      bottomRight: Radius.circular(40),
+                      bottomLeft: Radius.circular(AppDimensions.space32 + AppDimensions.space8),
+                      bottomRight: Radius.circular(AppDimensions.space32 + AppDimensions.space8),
                     ),
                   ),
                   child: SafeArea(
@@ -138,10 +140,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           width: 90,
                           height: 90,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: AppColors.onPrimary.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(26),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.4),
+                              color: AppColors.onPrimary.withOpacity(0.4),
                               width: 1.5,
                             ),
                           ),
@@ -152,30 +154,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.school_rounded,
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                                 size: 48,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
+                        const SizedBox(height: AppDimensions.space20),
+                        Text(
                           'EduManage',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
+                          style: AppTextStyles.headingLarge.copyWith(
                             fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.onPrimary,
                             letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        const Text(
+                        const SizedBox(height: AppDimensions.space4 + AppDimensions.space2),
+                        Text(
                           'Sign in to your account',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14,
-                            color: Colors.white70,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.onPrimary.withOpacity(0.8),
                           ),
                         ),
                       ],
