@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 
 class StatCard extends StatelessWidget {
   final String label;
@@ -22,13 +24,13 @@ class StatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(AppDimensions.space16),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.10),
+              color: AppColors.overlay.withOpacity(0.10),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -41,29 +43,25 @@ class StatCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.onPrimary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: Icon(icon, color: AppColors.onPrimary, size: 22),
             ),
             const Spacer(),
             Text(
               value,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
+              style: AppTextStyles.statValue.copyWith(
                 fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: AppColors.onPrimary,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: AppDimensions.space2),
             Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 12,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.onPrimary.withOpacity(0.8),
                 fontWeight: FontWeight.w500,
-                color: Colors.white70,
               ),
             ),
           ],
@@ -92,10 +90,13 @@ class QuickActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          vertical: AppDimensions.space16,
+          horizontal: AppDimensions.space12,
+        ),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
           border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
@@ -106,16 +107,15 @@ class QuickActionCard extends StatelessWidget {
               height: 46,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppDimensions.space8 + AppDimensions.space2),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Poppins',
+              style: AppTextStyles.labelSmall.copyWith(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: color,
@@ -148,24 +148,14 @@ class SectionHeader extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+          style: AppTextStyles.sectionTitle,
         ),
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
             child: Text(
               actionLabel!,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primary,
-              ),
+              style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
             ),
           ),
       ],
