@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_typography.dart';
 
 
 class CustomButton extends StatelessWidget {
@@ -22,9 +24,9 @@ class CustomButton extends StatelessWidget {
     this.gradient,
     this.backgroundColor,
     this.textColor,
-    this.height = 54,
+    this.height = 52,
     this.width,
-    this.borderRadius = 14,
+    this.borderRadius = AppDimensions.radiusMedium,
     this.icon,
   });
 
@@ -43,7 +45,7 @@ class CustomButton extends StatelessWidget {
           boxShadow: onPressed != null
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withOpacity(0.28),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   )
@@ -57,23 +59,24 @@ class CustomButton extends StatelessWidget {
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: Colors.white,
+                    color: AppColors.onPrimary,
                   ),
                 )
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, color: textColor ?? Colors.white, size: 20),
-                      const SizedBox(width: 8),
+                      Icon(icon, color: textColor ?? AppColors.onPrimary, size: 20),
+                      const SizedBox(width: AppDimensions.space8),
                     ],
                     Text(
                       label,
                       style: TextStyle(
-                        fontFamily: 'Poppins',
+                        fontFamily: AppTypography.fontFamily,
+                        fontFamilyFallback: AppTypography.fontFamilyFallback,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: textColor ?? Colors.white,
+                        color: textColor ?? AppColors.onPrimary,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -99,7 +102,7 @@ class CustomOutlineButton extends StatelessWidget {
     this.onPressed,
     this.borderColor,
     this.textColor,
-    this.height = 54,
+    this.height = 52,
     this.icon,
   });
 
@@ -111,8 +114,8 @@ class CustomOutlineButton extends StatelessWidget {
         height: height,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: AppColors.transparent,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
           border: Border.all(
             color: borderColor ?? AppColors.primary,
             width: 1.5,
@@ -124,12 +127,13 @@ class CustomOutlineButton extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 Icon(icon, color: textColor ?? AppColors.primary, size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppDimensions.space8),
               ],
               Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Poppins',
+                  fontFamily: AppTypography.fontFamily,
+                  fontFamilyFallback: AppTypography.fontFamilyFallback,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: textColor ?? AppColors.primary,
