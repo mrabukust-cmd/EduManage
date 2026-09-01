@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 
 /// Centered loading spinner with consistent app theming.
 /// Use in place of bare `CircularProgressIndicator()` calls.
@@ -30,14 +32,10 @@ class LoadingWidget extends StatelessWidget {
             ),
           ),
           if (message != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppDimensions.space12),
             Text(
               message!,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: AppTextStyles.labelMedium,
             ),
           ],
         ],

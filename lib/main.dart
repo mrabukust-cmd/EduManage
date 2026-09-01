@@ -14,6 +14,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:go_router/go_router.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/app_text_style.dart';
 import 'data/services/notification_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'firebase_options.dart';
@@ -73,20 +75,16 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.onPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: Colors.white,
                 ),
               ),
               if (body.isNotEmpty)
                 Text(
                   body,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: Colors.white70,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.onPrimary.withOpacity(0.8),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -97,7 +95,7 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'View',
-            textColor: Colors.white,
+            textColor: AppColors.onPrimary,
             onPressed: () {
               rootNavigatorKey.currentContext?.push('/notifications');
             },
