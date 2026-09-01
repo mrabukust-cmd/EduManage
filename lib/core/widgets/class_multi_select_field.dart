@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 
 /// Multi-select chip picker that lists every class name currently in the
 /// `classes` collection, in place of a free-text "comma separated"
@@ -67,20 +69,15 @@ class ClassMultiSelectField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
+              style: AppTextStyles.labelMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppDimensions.space8),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.background,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
                 border: Border.all(color: AppColors.divider),
               ),
               child: Wrap(
@@ -117,25 +114,23 @@ class ClassMultiSelectField extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (isSelected) ...[
-                            const Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                            const SizedBox(width: 4),
+                            const Icon(Icons.check_rounded, size: 14, color: AppColors.onPrimary),
+                            const SizedBox(width: AppDimensions.space4),
                           ],
                           if (!stillExists) ...[
                             Icon(Icons.error_outline_rounded,
                                 size: 14, color: AppColors.danger.withOpacity(0.7)),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: AppDimensions.space4),
                           ],
                           Text(
                             c,
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                            style: AppTextStyles.labelMedium.copyWith(
                               color: isSelected
-                                  ? Colors.white
+                                  ? AppColors.onPrimary
                                   : (stillExists
                                       ? AppColors.textPrimary
                                       : AppColors.danger),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -146,14 +141,10 @@ class ClassMultiSelectField extends StatelessWidget {
               ),
             ),
             if (selected.isEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: AppDimensions.space4 + AppDimensions.space2),
               Text(
                 'No classes selected yet — tap to assign.',
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 11,
-                  color: AppColors.textHint,
-                ),
+                style: AppTextStyles.labelSmall.copyWith(fontSize: 11, color: AppColors.textHint),
               ),
             ],
           ],
@@ -168,20 +159,15 @@ class ClassMultiSelectField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-          ),
+          style: AppTextStyles.labelMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimensions.space8),
         Container(
           height: 54,
           width: double.infinity,
           decoration: BoxDecoration(
             color: AppColors.background,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
             border: Border.all(color: AppColors.divider),
           ),
           alignment: Alignment.center,
