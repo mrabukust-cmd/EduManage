@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -131,12 +133,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             right: 24,
             child: TextButton(
               onPressed: _finish,
-              child: const Text(
+              child: Text(
                 'Skip',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  color: Colors.white70,
-                  fontSize: 14,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.onPrimary.withOpacity(0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -164,8 +164,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     controller: _pageController,
                     count: _pages.length,
                     effect: const ExpandingDotsEffect(
-                      activeDotColor: Colors.white,
-                      dotColor: Colors.white38,
+                      activeDotColor: AppColors.onPrimary,
+                      dotColor: AppColors.onPrimary.withOpacity(0.38),
                       dotHeight: 8,
                       dotWidth: 8,
                       expansionFactor: 3,
@@ -182,11 +182,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         vertical: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.onPrimary,
                         borderRadius: BorderRadius.circular(50),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: AppColors.overlay.withOpacity(0.15),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -199,14 +199,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             _currentPage == _pages.length - 1
                                 ? 'Get Started'
                                 : 'Next',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
+                            style: AppTextStyles.bodyMediumBold.copyWith(
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
                               color: _pages[_currentPage].accentColor,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppDimensions.space8),
                           Icon(
                             Icons.arrow_forward_rounded,
                             size: 18,
@@ -232,7 +230,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: 60),
+            const SizedBox(height: AppDimensions.space32 + AppDimensions.space24 + AppDimensions.space4),
 
             // ── Icon illustration area ─────────────────────────
             Expanded(
@@ -255,7 +253,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         height: 240,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.08),
+                          color: AppColors.onPrimary.withOpacity(0.08),
                         ),
                       ),
                       Container(
@@ -263,7 +261,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         height: 190,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.12),
+                          color: AppColors.onPrimary.withOpacity(0.12),
                         ),
                       ),
                       // Icon container
@@ -271,14 +269,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         width: 140,
                         height: 140,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: AppColors.onPrimary.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(44),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.35),
+                            color: AppColors.onPrimary.withOpacity(0.35),
                             width: 2,
                           ),
                         ),
-                        child: Icon(page.icon, size: 72, color: Colors.white),
+                        child: Icon(page.icon, size: 72, color: AppColors.onPrimary),
                       ),
                     ],
                   ),
@@ -301,40 +299,33 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: AppColors.onPrimary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(50),
                       ),
                       child: Text(
                         '0${_currentPage + 1} / 0${_pages.length}',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 12,
-                          color: Colors.white70,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.onPrimary.withOpacity(0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppDimensions.space20),
                     Text(
                       page.title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
+                      style: AppTextStyles.headingLarge.copyWith(
                         fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.2,
+                        color: AppColors.onPrimary,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimensions.space16),
                     Text(
                       page.subtitle,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
+                      style: AppTextStyles.bodyMedium.copyWith(
                         fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white70,
+                        color: AppColors.onPrimary.withOpacity(0.8),
                         height: 1.65,
                       ),
                     ),
