@@ -32,6 +32,10 @@ class AppColors {
   static const Color textPrimary    = Color(0xFF0F172A);
   static const Color textSecondary  = Color(0xFF64748B);
   static const Color textHint       = Color(0xFF94A3B8);
+  static const Color disabled       = Color(0xFFCBD5E1);
+  static const Color overlay        = Color(0x990F172A);
+  static const Color onPrimary      = Color(0xFFFFFFFF);
+  static const Color transparent    = Color(0x00000000);
 
   // ── Gradients ─────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
@@ -66,6 +70,10 @@ class AppColors {
 
   // ── Card Shadow ──────────────────────────────────────────────────────────
   static List<BoxShadow> get cardShadow => [
-    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+    BoxShadow(
+      color: const Color(0xFF0F172A).withOpacity(0.05),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
   ];
 }
