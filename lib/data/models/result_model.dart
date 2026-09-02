@@ -74,4 +74,30 @@ class ResultModel {
     if (percentage >= 40) return 'D';
     return 'F';
   }
+
+  ResultModel copyWith({
+    String? id,
+    String? studentId,
+    String? studentName,
+    String? className,
+    String? subject,
+    String? examTitle,
+    double? marksObtained,
+    double? totalMarks,
+    double? percentage,
+    DateTime? createdAt,
+  }) {
+    return ResultModel(
+      id: id ?? this.id,
+      studentId: studentId ?? this.studentId,
+      studentName: studentName ?? this.studentName,
+      className: className ?? this.className,
+      subject: subject ?? this.subject,
+      examTitle: examTitle ?? this.examTitle,
+      marksObtained: marksObtained ?? this.marksObtained,
+      totalMarks: totalMarks ?? this.totalMarks,
+      percentage: percentage ?? this.percentage,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
