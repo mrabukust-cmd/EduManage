@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/models/class_model.dart';
+import 'package:school_management_system/data/models/teacher_model.dart';
+import 'package:school_management_system/data/repositories/class_repo.dart';
+import 'package:school_management_system/data/repositories/student_repository.dart';
+import 'package:school_management_system/data/repositories/teacher_repo.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 
@@ -10,10 +14,9 @@ class ClassesScreen extends StatelessWidget {
   const ClassesScreen({super.key});
 
   void _showAddClassSheet(BuildContext context) {
-    // Single combined name field — e.g. "Grade 9 - A"
     final nameCtrl = TextEditingController();
-    String? _selectedTeacherId;
-    String? _selectedTeacherName;
+    String? selectedTeacherId;
+    String? selectedTeacherName;
     bool loading = false;
     final formKey = GlobalKey<FormState>();
 
@@ -37,7 +40,6 @@ class ClassesScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Sheet handle
                 Center(
                   child: Container(
                     width: 40,
@@ -58,7 +60,6 @@ class ClassesScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Combined class name field
                 CustomTextField(
                   label: 'Class Name',
                   hint: 'e.g. Grade 9 - A',
@@ -68,10 +69,9 @@ class ClassesScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // Class Teacher — approved teachers dropdown
-                Text(
+                const Text(
                   'Class Teacher',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -79,12 +79,8 @@ class ClassesScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('teachers')
-                      .where('approved', isEqualTo: true)
-                      .orderBy('name')
-                      .snapshots(),
+                StreamBuilder<List<TeacherModel>>(
+                  stream: TeacherRepository.instance.watchAll(),
                   builder: (context, snap) {
                     if (snap.connectionState == ConnectionState.waiting &&
                         !snap.hasData) {
@@ -104,16 +100,18 @@ class ClassesScreen extends StatelessWidget {
                       );
                     }
 
-                    final teacherDocs = snap.data?.docs ?? [];
+                    final teachers = (snap.data ?? [])
+                        .where((t) => t.isApproved)
+                        .toList();
 
-                    if (teacherDocs.isEmpty) {
+                    if (teachers.isEmpty) {
                       return Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.08),
+                          color: AppColors.warning.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: AppColors.warning.withOpacity(0.3)),
+                              color: AppColors.warning.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -133,7 +131,7 @@ class ClassesScreen extends StatelessWidget {
                     }
 
                     return DropdownButtonFormField<String>(
-                      value: _selectedTeacherId,
+                      initialValue: selectedTeacherId,
                       decoration: InputDecoration(
                         hintText: 'Select a teacher (optional)',
                         filled: true,
@@ -166,13 +164,11 @@ class ClassesScreen extends StatelessWidget {
                                 color: AppColors.textHint),
                           ),
                         ),
-                        ...teacherDocs.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final name = data['name'] as String? ?? 'Unknown';
-                          final subject =
-                              data['subject'] as String? ?? '';
+                        ...teachers.map((teacher) {
+                          final name = teacher.name.isNotEmpty ? teacher.name : 'Unknown';
+                          final subject = teacher.subject;
                           return DropdownMenuItem<String>(
-                            value: doc.id,
+                            value: teacher.id,
                             child: Text(
                               subject.isNotEmpty ? '$name — $subject' : name,
                               style: const TextStyle(
@@ -184,16 +180,13 @@ class ClassesScreen extends StatelessWidget {
                       ],
                       onChanged: (id) {
                         setSheetState(() {
-                          _selectedTeacherId = id;
+                          selectedTeacherId = id;
                           if (id == null) {
-                            _selectedTeacherName = '';
+                            selectedTeacherName = '';
                           } else {
-                            final doc = teacherDocs
-                                .firstWhere((d) => d.id == id);
-                            _selectedTeacherName = (doc.data()
-                                    as Map<String, dynamic>)['name']
-                                as String? ??
-                                '';
+                            final teacher = teachers
+                                .firstWhere((t) => t.id == id);
+                            selectedTeacherName = teacher.name;
                           }
                         });
                       },
@@ -209,15 +202,14 @@ class ClassesScreen extends StatelessWidget {
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
                     setSheetState(() => loading = true);
-                    await FirebaseFirestore.instance
-                        .collection('classes')
-                        .add({
-                      // Single combined name — section is baked in
-                      'name': nameCtrl.text.trim(),
-                      'classTeacher': _selectedTeacherName ?? '',
-                      'classTeacherId': _selectedTeacherId ?? '',
-                      'createdAt': FieldValue.serverTimestamp(),
-                    });
+                    await ClassRepository.instance.create(
+                      ClassModel(
+                        id: '',
+                        name: nameCtrl.text.trim(),
+                        classTeacher: selectedTeacherName ?? '',
+                        classTeacherId: selectedTeacherId ?? '',
+                      ),
+                    );
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
                   },
                 ),
@@ -252,16 +244,14 @@ class ClassesScreen extends StatelessWidget {
             style:
                 AppTextStyles.bodyMediumBold.copyWith(color: Colors.white)),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('classes')
-            .orderBy('name')
-            .snapshots(),
+      body: StreamBuilder<List<ClassModel>>(
+        stream: ClassRepository.instance.watchAll(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snap.hasData || snap.data!.docs.isEmpty) {
+          final classes = snap.data ?? [];
+          if (classes.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -280,10 +270,9 @@ class ClassesScreen extends StatelessWidget {
             );
           }
 
-          final docs = snap.data!.docs;
           return GridView.builder(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-            itemCount: docs.length,
+            itemCount: classes.length,
             gridDelegate:
                 const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -292,13 +281,13 @@ class ClassesScreen extends StatelessWidget {
               childAspectRatio: 0.95,
             ),
             itemBuilder: (context, i) {
-              final data = docs[i].data() as Map<String, dynamic>;
+              final classItem = classes[i];
               return _ClassCard(
-                docId: docs[i].id,
-                name: data['name'] ?? '',
-                classTeacher: (data['classTeacher'] ?? '').toString().isEmpty
+                docId: classItem.id,
+                name: classItem.name,
+                classTeacher: classItem.classTeacher.isEmpty
                     ? 'Unassigned'
-                    : data['classTeacher'],
+                    : classItem.classTeacher,
               );
             },
           );
@@ -318,13 +307,10 @@ class _ClassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('students')
-          .where('class', isEqualTo: name)
-          .get(),
+    return StreamBuilder<int>(
+      stream: StudentRepository.instance.watchCountByClass(name),
       builder: (context, snap) {
-        final count = snap.data?.docs.length ?? 0;
+        final count = snap.data ?? 0;
         return Container(
           decoration: BoxDecoration(
             gradient: AppColors.adminGradient,
@@ -338,7 +324,6 @@ class _ClassCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Show full class name as a compact badge
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -361,10 +346,7 @@ class _ClassCard extends StatelessWidget {
                         color: Colors.white70, size: 18),
                     onSelected: (v) {
                       if (v == 'delete') {
-                        FirebaseFirestore.instance
-                            .collection('classes')
-                            .doc(docId)
-                            .delete();
+                        ClassRepository.instance.delete(docId);
                       }
                     },
                     itemBuilder: (_) => const [
@@ -378,25 +360,35 @@ class _ClassCard extends StatelessWidget {
                 name,
                 style: AppTextStyles.bodyMediumBold
                     .copyWith(color: Colors.white, fontSize: 16),
-                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              Text(
-                classTeacher,
-                style: AppTextStyles.labelSmall
-                    .copyWith(color: Colors.white70),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.people_rounded,
-                      color: Colors.white70, size: 16),
+                  const Icon(Icons.person_rounded,
+                      color: Colors.white70, size: 14),
                   const SizedBox(width: 4),
-                  Text('$count students',
+                  Expanded(
+                    child: Text(
+                      classTeacher,
                       style: AppTextStyles.labelTiny
-                          .copyWith(color: Colors.white70)),
+                          .copyWith(color: Colors.white70),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  const Icon(Icons.people_outline_rounded,
+                      color: Colors.white70, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$count student${count == 1 ? '' : 's'}',
+                    style: AppTextStyles.labelTiny
+                        .copyWith(color: Colors.white70),
+                  ),
                 ],
               ),
             ],

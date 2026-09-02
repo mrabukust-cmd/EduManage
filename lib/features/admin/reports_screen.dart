@@ -2,6 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/data_helpers.dart';
+import 'package:school_management_system/data/models/result_model.dart';
+import 'package:school_management_system/data/repositories/class_repo.dart';
+import 'package:school_management_system/data/repositories/result_repo.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -130,12 +134,8 @@ class _AttendanceReportCard extends StatelessWidget {
 class _LatestExamGradeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('results')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .snapshots(),
+    return StreamBuilder<List<ResultModel>>(
+      stream: ResultRepository.instance.watchRecent(1),
       builder: (context, latestSnap) {
         if (latestSnap.connectionState == ConnectionState.waiting && !latestSnap.hasData) {
           return _ReportCard(title: 'Latest Exam Avg', valueWidget: _loadingValue(), color: AppColors.primary);
@@ -143,8 +143,8 @@ class _LatestExamGradeCard extends StatelessWidget {
         if (latestSnap.hasError) {
           return _ReportCard(title: 'Latest Exam Avg', valueWidget: _errorValue(), color: AppColors.primary);
         }
-        final latestDocs = latestSnap.data?.docs ?? [];
-        if (latestDocs.isEmpty) {
+        final latestResults = latestSnap.data ?? [];
+        if (latestResults.isEmpty) {
           return _ReportCard(
             title: 'Latest Exam Avg',
             valueWidget: Text('No data', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint)),
@@ -152,8 +152,7 @@ class _LatestExamGradeCard extends StatelessWidget {
           );
         }
 
-        final latestData = latestDocs.first.data() as Map<String, dynamic>;
-        final examTitle = latestData['examTitle'] as String? ?? 'General';
+        final examTitle = latestResults.first.examTitle;
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
@@ -183,8 +182,8 @@ class _LatestExamGradeCard extends StatelessWidget {
                   }
                 }
                 final avg = count > 0 ? total / count : 0.0;
-                value = Text(_letterGrade(avg),
-                    style: AppTextStyles.headingLarge.copyWith(color: _gradeColor(avg)));
+                value = Text(DataHelpers.letterGrade(avg),
+                    style: AppTextStyles.headingLarge.copyWith(color: DataHelpers.gradeColor(avg)));
               }
             }
             return _ReportCard(
@@ -278,8 +277,8 @@ class _ComputedHighlights extends StatelessWidget {
               .where('createdAt', isGreaterThanOrEqualTo: since30)
               .snapshots(),
           builder: (context, newStudentSnap) {
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+            return StreamBuilder<int>(
+              stream: ClassRepository.instance.watchTotalCount(),
               builder: (context, classSnap) {
                 final attDocs = attSnap.data?.docs ?? [];
                 int present = 0;
@@ -290,7 +289,7 @@ class _ComputedHighlights extends StatelessWidget {
                 final attPct = attDocs.isNotEmpty ? (present / attDocs.length) * 100 : null;
 
                 final newStudentCount = newStudentSnap.data?.docs.length;
-                final classCount = classSnap.data?.docs.length;
+                final classCount = classSnap.data;
 
                 final items = <Widget>[];
 
@@ -364,22 +363,4 @@ class _ReportListItem extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-String _letterGrade(double pct) {
-  if (pct >= 90) return 'A+';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'B+';
-  if (pct >= 60) return 'B';
-  if (pct >= 50) return 'C';
-  if (pct >= 40) return 'D';
-  return 'F';
-}
-
-Color _gradeColor(double pct) {
-  if (pct >= 80) return AppColors.success;
-  if (pct >= 60) return AppColors.primary;
-  if (pct >= 40) return AppColors.warning;
-  return AppColors.danger;
 }
