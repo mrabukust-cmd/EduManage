@@ -58,7 +58,7 @@ class AboutAppScreen extends ConsumerWidget {
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [roleColor, roleColor.withOpacity(0.75)],
+                    colors: [roleColor, roleColor.withValues(alpha: 0.75)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -72,10 +72,10 @@ class AboutAppScreen extends ConsumerWidget {
                           width: 78,
                           height: 78,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(22),
                             border: Border.all(
-                                color: Colors.white.withOpacity(0.35),
+                                color: Colors.white.withValues(alpha: 0.35),
                                 width: 1.5),
                           ),
                           child: const Icon(Icons.school_rounded,
@@ -97,7 +97,7 @@ class AboutAppScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 13,
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -175,7 +175,7 @@ class AboutAppScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       Icon(Icons.favorite_rounded,
-                          color: roleColor.withOpacity(0.6), size: 20),
+                          color: roleColor.withValues(alpha: 0.6), size: 20),
                       const SizedBox(height: 8),
                       Text(
                         'Built for schools, by educators and engineers.',
@@ -253,7 +253,7 @@ class _FeatureRow extends StatelessWidget {
             width: 38,
             height: 38,
             decoration:
-                BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+                BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 14),

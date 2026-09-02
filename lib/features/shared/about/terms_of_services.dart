@@ -219,7 +219,7 @@ class _TosHeaderBlock extends StatelessWidget {
             width: 48,
             height: 48,
             decoration:
-                BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+                BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 14),
@@ -328,9 +328,9 @@ class _TosContactChip extends StatelessWidget {
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
