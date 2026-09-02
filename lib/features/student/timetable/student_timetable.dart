@@ -1,14 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/models/timetable_model.dart';
+import 'package:school_management_system/data/repositories/class_repo.dart';
+import 'package:school_management_system/data/repositories/timetable_repo.dart';
 
 /// Read-only timetable for students and parents.
-/// No FAB, no delete button, no add-slot sheet.
 class StudentTimetableScreen extends StatefulWidget {
   /// Pass a fixed class name to lock the view to one class (student use case).
-  /// If null, a class picker is shown (parent browsing use case — not used yet).
   final String? fixedClassName;
 
   const StudentTimetableScreen({super.key, this.fixedClassName});
@@ -54,7 +54,6 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
           style: AppTextStyles.headingMedium.copyWith(color: Colors.white),
         ),
       ),
-      // No FAB — students cannot add slots
       body: Column(
         children: [
           // ── Class filter (hidden when class is fixed) ─────────────────
@@ -62,24 +61,10 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
             Container(
               color: AppColors.studentColor,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('classes')
-                    .orderBy('name')
-                    .snapshots(),
+              child: StreamBuilder<List<String>>(
+                stream: ClassRepository.instance.watchClassNames(),
                 builder: (context, snap) {
-                  final names = snap.hasData
-                      ? snap.data!.docs
-                            .map(
-                              (d) =>
-                                  (d.data() as Map<String, dynamic>)['name']
-                                      as String? ??
-                                  '',
-                            )
-                            .where((n) => n.isNotEmpty)
-                            .toSet()
-                            .toList()
-                      : <String>[];
+                  final names = snap.data ?? [];
                   if (names.isNotEmpty && _selectedClass.isEmpty) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) setState(() => _selectedClass = names.first);
@@ -132,7 +117,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -203,19 +188,16 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                       ),
                     ),
                   )
-                : StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('timetable')
-                        .where('className', isEqualTo: _selectedClass)
-                        .where('day', isEqualTo: _selectedDay)
-                        .orderBy('startTime')
-                        .snapshots(),
+                : StreamBuilder<List<TimetableModel>>(
+                    stream: TimetableRepository.instance
+                        .watchByClassAndDay(_selectedClass, _selectedDay),
                     builder: (context, snap) {
                       if (snap.connectionState == ConnectionState.waiting) {
                         return const Center(
                             child: CircularProgressIndicator());
                       }
-                      if (!snap.hasData || snap.data!.docs.isEmpty) {
+                      final slots = snap.data ?? [];
+                      if (slots.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -241,24 +223,20 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                       final now = TimeOfDay.now();
                       return ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-                        itemCount: snap.data!.docs.length,
+                        itemCount: slots.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: 10),
                         itemBuilder: (context, i) {
-                          final data = snap.data!.docs[i].data()
-                              as Map<String, dynamic>;
-                          final start = data['startTime'] as String? ?? '';
-                          final end = data['endTime'] as String? ?? '';
-                          final timeRange = start.isNotEmpty && end.isNotEmpty
-                              ? '$start – $end'
-                              : (data['time'] as String? ?? '');
+                          final slot = slots[i];
+                          final start = slot.startTime;
+                          final end = slot.endTime;
                           final isNow =
                               _isCurrentPeriod('$start–$end', now);
 
                           return _ReadOnlySlotCard(
-                            subject: data['subject'] as String? ?? '',
-                            teacher: data['teacherName'] as String? ?? '',
-                            room: data['room'] as String? ?? '',
+                            subject: slot.subject,
+                            teacher: slot.teacher,
+                            room: slot.room ?? '',
                             start: start,
                             end: end,
                             isNow: isNow,
@@ -328,8 +306,8 @@ class _ReadOnlySlotCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: isNow
-                  ? Colors.white.withOpacity(0.2)
-                  : AppColors.studentColor.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : AppColors.studentColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(

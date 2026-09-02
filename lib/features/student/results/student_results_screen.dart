@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/core/utils/data_helpers.dart';
+import 'package:school_management_system/data/models/result_model.dart';
+import 'package:school_management_system/data/repositories/result_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
-
-// ── Place this file at:
-// lib/features/student/results/student_results_screen.dart
-//
-// Add route in app_router.dart under /student/home routes:
-//   GoRoute(path: 'results', builder: (_, __) => const StudentResultsScreen()),
 
 class StudentResultsScreen extends ConsumerWidget {
   const StudentResultsScreen({super.key});
@@ -34,42 +29,37 @@ class StudentResultsScreen extends ConsumerWidget {
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('results')
-                  .where('studentId', isEqualTo: uid)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+          : StreamBuilder<List<ResultModel>>(
+              stream: ResultRepository.instance.watchByStudent(uid),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (!snap.hasData || snap.data!.docs.isEmpty) {
+                final results = snap.data ?? [];
+
+                if (results.isEmpty) {
                   return _EmptyResults();
                 }
 
-                final docs = snap.data!.docs;
-
                 // Group by examTitle
-                final Map<String, List<QueryDocumentSnapshot>> grouped = {};
-                for (final doc in docs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final exam = data['examTitle'] as String? ?? 'General';
-                  grouped.putIfAbsent(exam, () => []).add(doc);
+                final Map<String, List<ResultModel>> grouped = {};
+                for (final item in results) {
+                  final exam = item.examTitle.isEmpty ? 'General' : item.examTitle;
+                  grouped.putIfAbsent(exam, () => []).add(item);
                 }
 
                 return ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
                     // ── Overall GPA card ────────────────────────
-                    _OverallCard(docs: docs),
+                    _OverallCard(results: results),
                     const SizedBox(height: 24),
 
                     // ── Per-exam sections ────────────────────────
                     ...grouped.entries.map((entry) => _ExamSection(
                           examTitle: entry.key,
-                          docs: entry.value,
+                          results: entry.value,
                         )),
                     const SizedBox(height: 32),
                   ],
@@ -82,20 +72,16 @@ class StudentResultsScreen extends ConsumerWidget {
 
 // ── Overall summary card ──────────────────────────────────────────────────────
 class _OverallCard extends StatelessWidget {
-  final List<QueryDocumentSnapshot> docs;
-  const _OverallCard({required this.docs});
+  final List<ResultModel> results;
+  const _OverallCard({required this.results});
 
   @override
   Widget build(BuildContext context) {
     double totalPct = 0;
     int count = 0;
-    for (final doc in docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final pct = (data['percentage'] as num?)?.toDouble();
-      if (pct != null) {
-        totalPct += pct;
-        count++;
-      }
+    for (final result in results) {
+      totalPct += result.percentage;
+      count++;
     }
     final avg = count > 0 ? totalPct / count : 0.0;
     final grade = DataHelpers.letterGrade(avg);
@@ -165,8 +151,8 @@ class _OverallCard extends StatelessWidget {
 // ── Exam section ──────────────────────────────────────────────────────────────
 class _ExamSection extends StatelessWidget {
   final String examTitle;
-  final List<QueryDocumentSnapshot> docs;
-  const _ExamSection({required this.examTitle, required this.docs});
+  final List<ResultModel> results;
+  const _ExamSection({required this.examTitle, required this.results});
 
   @override
   Widget build(BuildContext context) {
@@ -190,9 +176,8 @@ class _ExamSection extends StatelessWidget {
             ],
           ),
         ),
-        ...docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return _ResultRow(data: data);
+        ...results.map((result) {
+          return _ResultRow(result: result);
         }),
         const SizedBox(height: 20),
       ],
@@ -202,16 +187,13 @@ class _ExamSection extends StatelessWidget {
 
 // ── Result row ────────────────────────────────────────────────────────────────
 class _ResultRow extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _ResultRow({required this.data});
+  final ResultModel result;
+  const _ResultRow({required this.result});
 
   @override
   Widget build(BuildContext context) {
-    final subject = data['subject'] as String? ?? 'Subject';
-    final marks = (data['marksObtained'] as num?)?.toDouble() ?? 0;
-    final total = (data['totalMarks'] as num?)?.toDouble() ?? 100;
-    final pct = (data['percentage'] as num?)?.toDouble() ?? 0;
-    final grade = DataHelpers.letterGrade(pct);
+    final pct = result.percentage;
+    final grade = result.letterGrade;
     final gradeColor = DataHelpers.gradeColor(pct);
 
     return Container(
@@ -227,12 +209,12 @@ class _ResultRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(subject, style: AppTextStyles.bodyMediumBold)),
+              Expanded(child: Text(result.subject, style: AppTextStyles.bodyMediumBold)),
               Container(
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: gradeColor.withOpacity(0.12),
+                  color: gradeColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -262,7 +244,7 @@ class _ResultRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                '${marks.toInt()}/${total.toInt()}',
+                '${result.marksObtained.toInt()}/${result.totalMarks.toInt()}',
                 style: AppTextStyles.labelSmall.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
