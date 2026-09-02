@@ -6,20 +6,21 @@
 // 2. startListening() called correctly whenever uid changes.
 // 3. Removed duplicate initialize() call inside auth listener.
 
-import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_text_style.dart';
+import 'data/services/local_notification_service.dart';
 import 'data/services/notification_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'firebase_options.dart';
-import 'package:school_management_system/data/services/local_notification_service.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -84,7 +85,7 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
                 Text(
                   body,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.onPrimary.withOpacity(0.8),
+                    color: AppColors.onPrimary.withValues(alpha: 0.8),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
