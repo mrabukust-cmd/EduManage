@@ -455,7 +455,7 @@ class _SubjectDropdown extends StatelessWidget {
             )),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             filled: true,
             fillColor: AppColors.background,
@@ -561,9 +561,9 @@ class _WarningField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.08),
+            color: AppColors.warning.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -608,7 +608,7 @@ class _StudentGradeRow extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.accent.withOpacity(0.12),
+            backgroundColor: AppColors.accent.withValues(alpha: 0.12),
             child: Text(rollNo,
                 style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.accent,

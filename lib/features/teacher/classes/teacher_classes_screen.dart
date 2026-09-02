@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/repositories/student_repository.dart';
+import 'package:school_management_system/data/repositories/teacher_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 class TeacherClassesScreen extends ConsumerWidget {
@@ -28,120 +30,58 @@ class TeacherClassesScreen extends ConsumerWidget {
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
-          : _AssignedClassesList(uid: uid, teacherName: teacherName),
-    );
-  }
-}
-
-// ── Assigned Classes List ──────────────────────────────────────────────────────
-class _AssignedClassesList extends StatefulWidget {
-  final String uid;
-  final String teacherName;
-
-  const _AssignedClassesList({required this.uid, required this.teacherName});
-
-  @override
-  State<_AssignedClassesList> createState() => _AssignedClassesListState();
-}
-
-class _AssignedClassesListState extends State<_AssignedClassesList> {
-  List<String> _assignedClassNames = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAssignedClasses();
-  }
-
-  /// Loads the teacher's assigned class names using the same two-step
-  /// fallback logic used throughout the app (teacher_repo.dart,
-  /// attendence_screen.dart, teacher_home_screen.dart):
-  ///   1. `teachers/{uid}.classes` array  (set by admin via ClassMultiSelectField)
-  ///   2. `classes` collection where `classTeacher == teacherName`  (legacy)
-  Future<void> _loadAssignedClasses() async {
-    try {
-      final db = FirebaseFirestore.instance;
-
-      final teacherDoc = await db.collection('teachers').doc(widget.uid).get();
-      final data = teacherDoc.data();
-
-      List<String> classes = (data?['classes'] as List<dynamic>?)
-              ?.map((e) => e.toString().trim())
-              .where((s) => s.isNotEmpty)
-              .toList() ??
-          [];
-
-      if (classes.isEmpty && widget.teacherName.trim().isNotEmpty) {
-        final classSnap = await db
-            .collection('classes')
-            .where('classTeacher', isEqualTo: widget.teacherName.trim())
-            .get();
-        classes = classSnap.docs
-            .map((d) => (d.data()['name'] as String? ?? '').trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-      }
-
-      classes.sort();
-
-      if (mounted) {
-        setState(() {
-          _assignedClassNames = classes;
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_assignedClassNames.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.class_outlined,
-                  size: 64, color: AppColors.textHint),
-              const SizedBox(height: 16),
-              Text(
-                'No classes assigned yet.\nAsk admin to assign you to a class.',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodyMedium
-                    .copyWith(color: AppColors.textSecondary),
+          : StreamBuilder<List<String>>(
+              stream: TeacherRepository.instance.watchAssignedClassNames(
+                uid: uid,
+                teacherName: teacherName,
               ),
-            ],
-          ),
-        ),
-      );
-    }
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-      itemCount: _assignedClassNames.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return _ClassTile(
-          className: _assignedClassNames[index],
-          teacherName: widget.teacherName,
-        );
-      },
+                final assignedClasses = snap.data ?? [];
+
+                if (assignedClasses.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.class_outlined,
+                              size: 64, color: AppColors.textHint),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No classes assigned yet.\nAsk admin to assign you to a class.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: assignedClasses.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    return _ClassTile(
+                      className: assignedClasses[index],
+                      teacherName: teacherName,
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
 
 // ── Class Tile ─────────────────────────────────────────────────────────────────
-//
-// Fetches the class doc and live student count from Firestore so each
-// tile shows real data (section, class teacher, student count).
 class _ClassTile extends StatelessWidget {
   final String className;
   final String teacherName;
@@ -151,7 +91,7 @@ class _ClassTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // Fetch the matching class doc(s) by name
+      // Fetch matching class info
       stream: FirebaseFirestore.instance
           .collection('classes')
           .where('name', isEqualTo: className)
@@ -166,14 +106,11 @@ class _ClassTile extends StatelessWidget {
         final classTeacher =
             classData['classTeacher'] as String? ?? teacherName;
 
-        return StreamBuilder<QuerySnapshot>(
-          // Live student count for this class
-          stream: FirebaseFirestore.instance
-              .collection('students')
-              .where('class', isEqualTo: className)
-              .snapshots(),
+        return StreamBuilder<int>(
+          // Live student count via StudentRepository
+          stream: StudentRepository.instance.watchCountByClass(className),
           builder: (context, studentSnap) {
-            final studentCount = studentSnap.data?.docs.length ?? 0;
+            final studentCount = studentSnap.data ?? 0;
 
             return Container(
               padding: const EdgeInsets.all(18),
@@ -191,7 +128,7 @@ class _ClassTile extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.teacherColor.withOpacity(0.12),
+                          color: AppColors.teacherColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.class_rounded,
@@ -206,7 +143,7 @@ class _ClassTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.teacherColor.withOpacity(0.1),
+                          color: AppColors.teacherColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(

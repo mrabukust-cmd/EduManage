@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/models/assignment_model.dart';
+import 'package:school_management_system/data/repositories/assignment_repo.dart';
 import 'package:school_management_system/data/services/notification_helper.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../../core/widgets/custom_button.dart';
@@ -45,17 +47,14 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('assignments')
-                  .where('teacherId', isEqualTo: uid)
-                  .orderBy('dueDate')
-                  .snapshots(),
+          : StreamBuilder<List<AssignmentModel>>(
+              stream: AssignmentRepository.instance.watchByTeacher(uid),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (!snap.hasData || snap.data!.docs.isEmpty) {
+                final assignments = snap.data ?? [];
+                if (assignments.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -74,17 +73,14 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                   );
                 }
 
-                final docs = snap.data!.docs;
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                  itemCount: docs.length,
+                  itemCount: assignments.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
-                    final data = docs[i].data() as Map<String, dynamic>;
-                    final dueDate =
-                        (data['dueDate'] as Timestamp?)?.toDate();
-                    final overdue = dueDate != null &&
-                        dueDate.isBefore(DateTime.now());
+                    final assignment = assignments[i];
+                    final dueDate = assignment.dueDate;
+                    final overdue = assignment.isOverdue;
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -93,7 +89,7 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                         boxShadow: AppColors.cardShadow,
                         border: overdue
                             ? Border.all(
-                                color: AppColors.danger.withOpacity(0.4))
+                                color: AppColors.danger.withValues(alpha: 0.4))
                             : null,
                       ),
                       child: Row(
@@ -102,7 +98,7 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color:
-                                  AppColors.teacherColor.withOpacity(0.1),
+                                  AppColors.teacherColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.assignment_rounded,
@@ -113,11 +109,11 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(data['title'] ?? '',
+                                Text(assignment.title,
                                     style: AppTextStyles.bodyMediumBold),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '${data['className'] ?? ''} · ${data['subject'] ?? ''}',
+                                  '${assignment.className} · ${assignment.subject}',
                                   style: AppTextStyles.labelSmall,
                                 ),
                                 const SizedBox(height: 4),
@@ -138,10 +134,8 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
                           IconButton(
                             icon: const Icon(Icons.delete_outline_rounded,
                                 color: AppColors.danger),
-                            onPressed: () => FirebaseFirestore.instance
-                                .collection('assignments')
-                                .doc(docs[i].id)
-                                .delete(),
+                            onPressed: () =>
+                                AssignmentRepository.instance.delete(assignment.id),
                           ),
                         ],
                       ),
@@ -442,15 +436,18 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
     } catch (_) {}
 
     // Save the assignment
-    await FirebaseFirestore.instance.collection('assignments').add({
-      'title': _titleCtrl.text.trim(),
-      'description': _descCtrl.text.trim(),
-      'className': _selectedClass,
-      'subject': _selectedSubject,
-      'teacherId': widget.teacherId,
-      'dueDate': Timestamp.fromDate(_dueDate!),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    await AssignmentRepository.instance.create(
+      AssignmentModel(
+        id: '',
+        title: _titleCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
+        className: _selectedClass!,
+        subject: _selectedSubject!,
+        teacherId: widget.teacherId,
+        teacherName: teacherName,
+        dueDate: _dueDate,
+      ),
+    );
 
     // ── Notify students (and parents) in this class ───────────────────────
     try {
@@ -600,9 +597,9 @@ class _WarningField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.08),
+            color: AppColors.warning.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
