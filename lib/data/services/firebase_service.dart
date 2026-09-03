@@ -7,7 +7,7 @@ class FirebaseService {
   FirebaseService._();
   static final FirebaseService instance = FirebaseService._();
 
-  final FirebaseFirestore db = FirebaseFirestore.instance;
+  FirebaseFirestore get db => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> collection(String path) =>
       db.collection(path);
