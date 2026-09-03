@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/constants/stat_card.dart';
+import 'package:school_management_system/core/router/route_names.dart';
+import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/models/notice_model.dart';
+import 'package:school_management_system/data/providers/repository_providers.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
-import '../../../core/router/route_names.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -41,22 +43,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Good morning 👋',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  color: Colors.white70,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.onPrimary.withValues(alpha: 0.7),
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 user?.displayName ?? 'Admin',
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                style: AppTextStyles.headingLarge.copyWith(
+                                  color: AppColors.onPrimary,
                                 ),
                               ),
                             ],
@@ -65,14 +62,19 @@ class AdminDashboardScreen extends ConsumerWidget {
                             onTap: () => context.push(RouteNames.profile),
                             child: CircleAvatar(
                               radius: 24,
-                              backgroundColor: Colors.white.withOpacity(0.2),
+                              backgroundColor: AppColors.onPrimary.withValues(alpha: 0.2),
                               child: user?.photoURL != null
                                   ? ClipOval(
-                                      child: Image.network(user!.photoURL!,
-                                          fit: BoxFit.cover),
+                                      child: Image.network(
+                                        user!.photoURL!,
+                                        fit: BoxFit.cover,
+                                      ),
                                     )
-                                  : const Icon(Icons.person_rounded,
-                                      color: Colors.white, size: 26),
+                                  : const Icon(
+                                      Icons.person_rounded,
+                                      color: AppColors.onPrimary,
+                                      size: 26,
+                                    ),
                             ),
                           ),
                         ],
@@ -82,14 +84,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            title: const Text(
+            title: Text(
               'Admin Dashboard',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.onPrimary),
             ),
           ),
 
@@ -98,14 +95,14 @@ class AdminDashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Stats grid
-                _buildStatsGrid(),
+                // Stats grid driven by Riverpod repository providers
+                _buildStatsGrid(ref),
                 const SizedBox(height: 28),
 
                 // Quick actions
                 const SectionHeader(title: 'Quick Actions'),
                 const SizedBox(height: 14),
-                _buildQuickActions(context),
+                _buildQuickActions(context, ref),
                 const SizedBox(height: 28),
 
                 // Recent notices
@@ -114,7 +111,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   actionLabel: 'See all',
                 ),
                 const SizedBox(height: 14),
-                _buildRecentNotices(),
+                _buildRecentNotices(ref),
                 const SizedBox(height: 100),
               ]),
             ),
@@ -124,145 +121,116 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsGrid() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('students').snapshots(),
-      builder: (context, studentSnap) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('teachers').snapshots(),
-          builder: (context, teacherSnap) {
-            return StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance.collection('classes').snapshots(),
-              builder: (context, classSnap) {
-                final studentCount =
-                    studentSnap.data?.docs.length.toString() ?? '...';
-                final teacherCount =
-                    teacherSnap.data?.docs.length.toString() ?? '...';
-                final classCount =
-                    classSnap.data?.docs.length.toString() ?? '...';
+  Widget _buildStatsGrid(WidgetRef ref) {
+    final studentCount =
+        ref.watch(studentsTotalCountProvider).valueOrNull?.toString() ?? '...';
+    final teacherCount =
+        ref.watch(teachersTotalCountProvider).valueOrNull?.toString() ?? '...';
+    final classCount =
+        ref.watch(classesCountProvider).valueOrNull?.toString() ?? '...';
+    final noticeCount =
+        ref.watch(noticesTotalCountProvider).valueOrNull?.toString() ?? '...';
 
-                return GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.2,
-                  children: [
-                    StatCard(
-                      label: 'Total Students',
-                      value: studentCount,
-                      icon: Icons.people_rounded,
-                      gradient: AppColors.adminGradient,
-                    ),
-                    StatCard(
-                      label: 'Total Teachers',
-                      value: teacherCount,
-                      icon: Icons.school_rounded,
-                      gradient: AppColors.teacherGradient,
-                    ),
-                    StatCard(
-                      label: 'Classes',
-                      value: classCount,
-                      icon: Icons.class_rounded,
-                      gradient: AppColors.studentGradient,
-                    ),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('notices')
-                          .snapshots(),
-                      builder: (context, noticeSnap) {
-                        final noticeCount =
-                            noticeSnap.data?.docs.length.toString() ?? '...';
-                        return StatCard(
-                          label: 'Notices',
-                          value: noticeCount,
-                          icon: Icons.campaign_rounded,
-                          gradient: AppColors.primaryGradient,
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 14,
+      mainAxisSpacing: 14,
+      childAspectRatio: 1.2,
+      children: [
+        StatCard(
+          label: 'Total Students',
+          value: studentCount,
+          icon: Icons.people_rounded,
+          gradient: AppColors.adminGradient,
+        ),
+        StatCard(
+          label: 'Total Teachers',
+          value: teacherCount,
+          icon: Icons.school_rounded,
+          gradient: AppColors.teacherGradient,
+        ),
+        StatCard(
+          label: 'Classes',
+          value: classCount,
+          icon: Icons.class_rounded,
+          gradient: AppColors.studentGradient,
+        ),
+        StatCard(
+          label: 'Notices',
+          value: noticeCount,
+          icon: Icons.campaign_rounded,
+          gradient: AppColors.primaryGradient,
+        ),
+      ],
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    // Check if any classes exist — show a warning badge on Setup Classes if not
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('classes').snapshots(),
-      builder: (context, classSnap) {
-        final hasClasses =
-            (classSnap.data?.docs.length ?? 0) > 0;
+  Widget _buildQuickActions(BuildContext context, WidgetRef ref) {
+    final classCountAsync = ref.watch(classesCountProvider);
+    final hasClasses = (classCountAsync.valueOrNull ?? 0) > 0;
 
-        final actions = [
-          _Action('Add Student',    Icons.person_add_rounded,         AppColors.adminColor),
-          _Action('Add Teacher',    Icons.person_add_alt_1_rounded,   AppColors.teacherColor),
-          _Action('New Notice',     Icons.edit_document,              AppColors.primary),
-          _Action('Reports',        Icons.bar_chart_rounded,          AppColors.accent),
-          _Action('Timetable',      Icons.calendar_month_rounded,     AppColors.warning),
-          _Action('Approvals',      Icons.fact_check_rounded,         AppColors.success),
-          _Action('Fix Classes',    Icons.merge_type_rounded,         AppColors.danger),
-          // Shows badge when no classes exist yet
-          _Action('Setup Classes',  Icons.auto_fix_high_rounded,
-              hasClasses ? AppColors.textSecondary : AppColors.warning,
-              badge: hasClasses ? null : '!'),
-        ];
+    final actions = [
+      const _Action('Add Student', Icons.person_add_rounded, AppColors.adminColor),
+      const _Action('Add Teacher', Icons.person_add_alt_1_rounded, AppColors.teacherColor),
+      const _Action('New Notice', Icons.edit_document, AppColors.primary),
+      const _Action('Reports', Icons.bar_chart_rounded, AppColors.accent),
+      const _Action('Timetable', Icons.calendar_month_rounded, AppColors.warning),
+      const _Action('Approvals', Icons.fact_check_rounded, AppColors.success),
+      const _Action('Fix Classes', Icons.merge_type_rounded, AppColors.danger),
+      _Action(
+        'Setup Classes',
+        Icons.auto_fix_high_rounded,
+        hasClasses ? AppColors.textSecondary : AppColors.warning,
+        badge: hasClasses ? null : '!',
+      ),
+    ];
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: actions.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.95,
-          ),
-          itemBuilder: (context, i) {
-            final action = actions[i];
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                QuickActionCard(
-                  label: action.label,
-                  icon: action.icon,
-                  color: action.color,
-                  onTap: () => _handleAction(context, action.label),
-                ),
-                if (action.badge != null)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: const BoxDecoration(
-                        color: AppColors.warning,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '!',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: actions.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.95,
+      ),
+      itemBuilder: (context, i) {
+        final action = actions[i];
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            QuickActionCard(
+              label: action.label,
+              icon: action.icon,
+              color: action.color,
+              onTap: () => _handleAction(context, action.label),
+            ),
+            if (action.badge != null)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: AppColors.warning,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '!',
+                      style: AppTextStyles.labelTiny.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onPrimary,
                       ),
                     ),
                   ),
-              ],
-            );
-          },
+                ),
+              ),
+          ],
         );
       },
     );
@@ -292,37 +260,31 @@ class AdminDashboardScreen extends ConsumerWidget {
         context.push('/admin/home/fix-class-names');
         break;
       case 'Setup Classes':
-        // Seeds Nursery → Grade 12 with sections A, B, C
         context.push('/admin/home/seed-classes');
         break;
     }
   }
 
-  Widget _buildRecentNotices() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('notices')
-          .orderBy('createdAt', descending: true)
-          .limit(3)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snap.hasData || snap.data!.docs.isEmpty) {
-          return _EmptyCard(
+  Widget _buildRecentNotices(WidgetRef ref) {
+    final noticesAsync = ref.watch(noticesStreamProvider);
+
+    return noticesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => const _EmptyCard(
+        icon: Icons.campaign_outlined,
+        message: 'Could not load notices.',
+      ),
+      data: (notices) {
+        if (notices.isEmpty) {
+          return const _EmptyCard(
             icon: Icons.campaign_outlined,
             message: 'No notices yet. Add one!',
           );
         }
+        final recent = notices.take(3).toList();
         return Column(
-          children: snap.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return _NoticeCard(
-              title: data['title'] ?? '',
-              body: data['body'] ?? '',
-              type: data['type'] ?? 'general',
-            );
+          children: recent.map((notice) {
+            return _NoticeCard(notice: notice);
           }).toList(),
         );
       },
@@ -339,22 +301,17 @@ class _Action {
 }
 
 class _NoticeCard extends StatelessWidget {
-  final String title;
-  final String body;
-  final String type;
+  final NoticeModel notice;
 
-  const _NoticeCard({
-    required this.title,
-    required this.body,
-    required this.type,
-  });
+  const _NoticeCard({required this.notice});
 
   Color get _typeColor {
-    switch (type) {
+    switch (notice.category.toLowerCase()) {
       case 'urgent':
-        return AppColors.danger;
       case 'exam':
         return AppColors.warning;
+      case 'holiday':
+        return AppColors.success;
       default:
         return AppColors.info;
     }
@@ -366,7 +323,7 @@ class _NoticeCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.divider),
       ),
@@ -376,7 +333,7 @@ class _NoticeCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: _typeColor.withOpacity(0.1),
+              color: _typeColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(Icons.campaign_rounded, color: _typeColor, size: 22),
@@ -387,24 +344,15 @@ class _NoticeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+                  notice.title,
+                  style: AppTextStyles.bodyMediumBold,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  body,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                  notice.description,
+                  style: AppTextStyles.bodySmall,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -414,14 +362,12 @@ class _NoticeCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _typeColor.withOpacity(0.1),
+              color: _typeColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              type.toUpperCase(),
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 9,
+              notice.category.toUpperCase(),
+              style: AppTextStyles.labelTiny.copyWith(
                 fontWeight: FontWeight.w700,
                 color: _typeColor,
               ),
@@ -443,7 +389,7 @@ class _EmptyCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.divider),
       ),
@@ -453,11 +399,7 @@ class _EmptyCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             message,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
+            style: AppTextStyles.labelMedium,
           ),
         ],
       ),
