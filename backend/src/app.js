@@ -46,16 +46,29 @@ const classesRoutes = require('./modules/classes/classes.routes');
 const studentsRoutes = require('./modules/students/students.routes');
 const teachersRoutes = require('./modules/teachers/teachers.routes');
 const attendanceRoutes = require('./modules/attendance/attendance.routes');
+const assignmentsRoutes = require('./modules/assignments/assignments.routes');
+const feesRoutes = require('./modules/fees/fees.routes');
+const noticesRoutes = require('./modules/notices/notices.routes');
+const timetableRoutes = require('./modules/timetable/timetable.routes');
+const resultsRoutes = require('./modules/results/results.routes');
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/classes', classesRoutes);
 apiRouter.use('/students', studentsRoutes);
 apiRouter.use('/teachers', teachersRoutes);
 apiRouter.use('/attendance', attendanceRoutes);
+apiRouter.use('/assignments', assignmentsRoutes);
+apiRouter.use('/fees', feesRoutes);
+apiRouter.use('/notices', noticesRoutes);
+apiRouter.use('/timetable', timetableRoutes);
+apiRouter.use('/results', resultsRoutes);
+apiRouter.use('/dashboard', dashboardRoutes);
 
 // Mount root api router
 app.use(config.apiPrefix, apiRouter);
 app.apiRouter = apiRouter;
+
 
 // Seed initial database records
 const seedDatabase = require('./db/seeds');

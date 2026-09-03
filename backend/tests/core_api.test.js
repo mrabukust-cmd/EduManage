@@ -58,6 +58,7 @@ test('Core APIs Integration Suite', async (t) => {
 
     // 4. Test Create Class
     await t.test('POST /classes - admin creates a new class', async () => {
+      const className = `Grade 11 - ${Date.now()}`;
       const res = await fetch(`${baseUrl}/classes`, {
         method: 'POST',
         headers: {
@@ -65,15 +66,16 @@ test('Core APIs Integration Suite', async (t) => {
           Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({
-          name: 'Grade 11 - A',
+          name: className,
           capacity: 32,
         }),
       });
 
       assert.strictEqual(res.status, 201);
       const data = await res.json();
-      assert.strictEqual(data.data.name, 'Grade 11 - A');
+      assert.strictEqual(data.data.name, className);
     });
+
 
     // 5. Test Students Listing
     await t.test('GET /students - lists enrolled students', async () => {
