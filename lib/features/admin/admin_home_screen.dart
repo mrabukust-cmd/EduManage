@@ -7,6 +7,7 @@ import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/features/admin/fees/fee_notification_overlay.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
+import 'package:school_management_system/data/providers/repository_providers.dart';
 
 // ── Activity event model ───────────────────────────────────────────────────────
 class ActivityEvent {
@@ -800,186 +801,42 @@ class _QACard extends StatelessWidget {
 }
 
 // ── Recent Activity Feed ───────────────────────────────────────────────────────
-class _RecentActivityFeed extends StatefulWidget {
+// ── Recent Activity Feed ───────────────────────────────────────────────────────
+class _RecentActivityFeed extends ConsumerWidget {
   final int limit;
   const _RecentActivityFeed({this.limit = 8});
 
   @override
-  State<_RecentActivityFeed> createState() => _RecentActivityFeedState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activityAsync = ref.watch(adminRecentActivityProvider);
 
-class _RecentActivityFeedState extends State<_RecentActivityFeed> {
-  List<QueryDocumentSnapshot> _students = [];
-  List<QueryDocumentSnapshot> _teachers = [];
-  List<QueryDocumentSnapshot> _notices = [];
-  List<QueryDocumentSnapshot> _fees = [];
-  List<QueryDocumentSnapshot> _attendance = [];
-  List<QueryDocumentSnapshot> _assignments = [];
-  List<QueryDocumentSnapshot> _results = [];
-  List<QueryDocumentSnapshot> _pending = [];
-
-  @override
-  Widget build(BuildContext context) {
-    final db = FirebaseFirestore.instance;
-    final lim = widget.limit * 3;
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: db.collection('students').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-      builder: (context, s) {
-        if (s.hasData) _students = s.data!.docs;
-        return StreamBuilder<QuerySnapshot>(
-          stream: db.collection('teachers').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-          builder: (context, s) {
-            if (s.hasData) _teachers = s.data!.docs;
-            return StreamBuilder<QuerySnapshot>(
-              stream: db.collection('notices').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-              builder: (context, s) {
-                if (s.hasData) _notices = s.data!.docs;
-                return StreamBuilder<QuerySnapshot>(
-                  stream: db.collection('fees').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-                  builder: (context, s) {
-                    if (s.hasData) _fees = s.data!.docs;
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: db.collection('attendance').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-                      builder: (context, s) {
-                        if (s.hasData) _attendance = s.data!.docs;
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: db.collection('assignments').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-                          builder: (context, s) {
-                            if (s.hasData) _assignments = s.data!.docs;
-                            return StreamBuilder<QuerySnapshot>(
-                              stream: db.collection('results').orderBy('createdAt', descending: true).limit(lim).snapshots(),
-                              builder: (context, s) {
-                                if (s.hasData) _results = s.data!.docs;
-                                return StreamBuilder<QuerySnapshot>(
-                                  stream: db.collection('users').where('approved', isEqualTo: false).orderBy('createdAt', descending: true).limit(lim).snapshots(),
-                                  builder: (context, s) {
-                                    if (s.hasData) _pending = s.data!.docs;
-                                    final events = _build();
-                                    if (events.isEmpty) return _empty();
-                                    return Column(
-                                      children: events
-                                          .take(widget.limit)
-                                          .map((e) => _ActivityTile(event: e))
-                                          .toList(),
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            );
-          },
+    return activityAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (_, __) => _empty(),
+      data: (events) {
+        if (events.isEmpty) return _empty();
+        return Column(
+          children: events
+              .take(limit)
+              .map((e) => _ActivityTile(
+                    event: ActivityEvent(
+                      title: e.title,
+                      subtitle: e.subtitle,
+                      icon: e.icon,
+                      color: e.color,
+                      time: e.time,
+                      route: e.route,
+                    ),
+                  ))
+              .toList(),
         );
       },
     );
-  }
-
-  List<ActivityEvent> _build() {
-    final List<ActivityEvent> ev = [];
-
-    for (final doc in _students) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'New student: ${d['name'] ?? 'Unknown'}',
-        subtitle: 'Class ${d['class'] ?? '-'} · Roll ${d['rollNo'] ?? '-'}',
-        icon: Icons.person_add_rounded,
-        color: AppColors.studentColor,
-        time: _tsToDate(d['createdAt']),
-        route: '/admin/home/students',
-      ));
-    }
-    for (final doc in _teachers) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'New teacher: ${d['name'] ?? 'Unknown'}',
-        subtitle: 'Subject: ${d['subject'] ?? '-'}',
-        icon: Icons.person_add_alt_1_rounded,
-        color: AppColors.teacherColor,
-        time: _tsToDate(d['createdAt']),
-        route: '/admin/home/teachers',
-      ));
-    }
-    for (final doc in _notices) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'Notice: ${d['title'] ?? 'Untitled'}',
-        subtitle: d['category'] ?? 'General',
-        icon: Icons.campaign_rounded,
-        color: AppColors.accent,
-        time: _tsToDate(d['createdAt']),
-        route: '/admin/home/notices',
-      ));
-    }
-    for (final doc in _fees) {
-      final d = doc.data() as Map<String, dynamic>;
-      final st = d['status'] as String? ?? 'pending';
-      ev.add(ActivityEvent(
-        title: 'Fee ${st == 'paid' ? 'paid' : 'added'}: ${d['studentName'] ?? ''}',
-        subtitle: 'Rs. ${(d['amount'] as num?)?.toStringAsFixed(0) ?? '0'} · $st',
-        icon: Icons.attach_money_rounded,
-        color: st == 'paid' ? AppColors.success : AppColors.warning,
-        time: _tsToDate(d['createdAt']),
-        route: '/admin/home/fees',
-      ));
-    }
-    for (final doc in _attendance) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'Attendance: ${d['className'] ?? ''}',
-        subtitle: '${d['studentName'] ?? ''} · ${d['status'] ?? ''} · ${d['date'] ?? ''}',
-        icon: Icons.how_to_reg_rounded,
-        color: AppColors.teacherColor,
-        time: _tsToDate(d['createdAt'] ?? d['timestamp']),
-      ));
-    }
-    for (final doc in _assignments) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'Assignment: ${d['title'] ?? 'Untitled'}',
-        subtitle: '${d['className'] ?? ''} · ${d['subject'] ?? ''}',
-        icon: Icons.assignment_rounded,
-        color: AppColors.primary,
-        time: _tsToDate(d['createdAt']),
-      ));
-    }
-    for (final doc in _results) {
-      final d = doc.data() as Map<String, dynamic>;
-      ev.add(ActivityEvent(
-        title: 'Result: ${d['studentName'] ?? ''}',
-        subtitle:
-            '${d['subject'] ?? ''} · ${d['examTitle'] ?? ''} · ${(d['percentage'] as num?)?.toStringAsFixed(0) ?? '0'}%',
-        icon: Icons.bar_chart_rounded,
-        color: AppColors.info,
-        time: _tsToDate(d['createdAt']),
-      ));
-    }
-    for (final doc in _pending) {
-      final d = doc.data() as Map<String, dynamic>;
-      final role = d['role'] as String? ?? 'user';
-      ev.add(ActivityEvent(
-        title: '${d['name'] ?? 'Unknown'} awaiting approval',
-        subtitle: '${role[0].toUpperCase()}${role.substring(1)} registration',
-        icon: Icons.hourglass_top_rounded,
-        color: AppColors.warning,
-        time: _tsToDate(d['createdAt']),
-        route: '/admin/home/approvals',
-      ));
-    }
-
-    ev.sort((a, b) {
-      if (a.time == null && b.time == null) return 0;
-      if (a.time == null) return 1;
-      if (b.time == null) return -1;
-      return b.time!.compareTo(a.time!);
-    });
-    return ev;
   }
 
   Widget _empty() {
@@ -1000,6 +857,7 @@ class _RecentActivityFeedState extends State<_RecentActivityFeed> {
     );
   }
 }
+
 
 class _ActivityTile extends StatelessWidget {
   final ActivityEvent event;

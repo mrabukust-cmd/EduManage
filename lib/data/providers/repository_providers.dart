@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_colors.dart';
 import '../models/class_model.dart';
+
 import '../models/student_model.dart';
 import '../models/teacher_model.dart';
 import '../models/notice_model.dart';
@@ -128,4 +131,42 @@ final noticesStreamProvider = StreamProvider<List<NoticeModel>>((ref) {
 final noticesTotalCountProvider = StreamProvider<int>((ref) {
   return ref.watch(noticeRepositoryProvider).watchAll().map((list) => list.length);
 });
+
+// ── Admin Activity Event ──────────────────────────────────────
+class AdminActivityEvent {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final DateTime? time;
+  final String? route;
+
+  const AdminActivityEvent({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.time,
+    this.route,
+  });
+}
+
+/// Provides activity stream from notices for admin feeds
+final adminRecentActivityProvider =
+    StreamProvider<List<AdminActivityEvent>>((ref) {
+  return ref.watch(noticeRepositoryProvider).watchAll().map((notices) {
+    return notices.map((n) {
+      return AdminActivityEvent(
+        title: 'Notice: ${n.title}',
+        subtitle: n.category,
+        icon: Icons.campaign_rounded,
+        color: AppColors.accent,
+        time: n.createdAt,
+        route: '/admin/home/notices',
+      );
+    }).toList();
+  });
+});
+
+
 
