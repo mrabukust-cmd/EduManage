@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_dimensions.dart';
-import 'package:school_management_system/core/theme/app_typography.dart';
-
+import 'package:school_management_system/core/theme/app_text_style.dart';
 
 class CustomButton extends StatelessWidget {
   final String label;
@@ -45,7 +44,7 @@ class CustomButton extends StatelessWidget {
           boxShadow: onPressed != null
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.28),
+                    color: AppColors.primary.withValues(alpha: 0.28),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   )
@@ -71,14 +70,9 @@ class CustomButton extends StatelessWidget {
                     ],
                     Text(
                       label,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontFamily,
-                        fontFamilyFallback: AppTypography.fontFamilyFallback,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: textColor ?? AppColors.onPrimary,
-                        letterSpacing: 0.5,
-                      ),
+                      style: textColor != null
+                          ? AppTextStyles.button.copyWith(color: textColor)
+                          : AppTextStyles.button,
                     ),
                   ],
                 ),
@@ -131,13 +125,9 @@ class CustomOutlineButton extends StatelessWidget {
               ],
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontFamily,
-                  fontFamilyFallback: AppTypography.fontFamilyFallback,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: textColor ?? AppColors.primary,
-                ),
+                style: textColor != null
+                    ? AppTextStyles.button.copyWith(color: textColor)
+                    : AppTextStyles.button.copyWith(color: AppColors.primary),
               ),
             ],
           ),

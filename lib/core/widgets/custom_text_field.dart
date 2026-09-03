@@ -69,7 +69,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
               hintText: widget.hint ?? 'Enter ${widget.label.toLowerCase()}',
               filled: true,
               fillColor: _isFocused
-                  ? AppColors.primary.withOpacity(0.04)
+                  ? AppColors.primary.withValues(alpha: 0.04)
                   : AppColors.background,
               prefixIcon: widget.prefixIcon != null
                   ? Icon(
