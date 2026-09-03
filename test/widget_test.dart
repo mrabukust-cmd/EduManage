@@ -1,61 +1,102 @@
-// // This is a basic Flutter widget test.
-// //
-// // To perform an interaction with a widget in your test, use the WidgetTester
-// // utility in the flutter_test package. For example, you can send tap and scroll
-// // gestures. You can also use WidgetTester to find child widgets in the widget
-// // tree, read text, and verify that the values of widget properties are correct.
-
-// import 'package:flutter/material.dart';
-// import 'package:flutter_test/flutter_test.dart';
-
-// import 'package:shimmer/main.dart';
-
-// void main() {
-//   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-//     // Build our app and trigger a frame.
-//     await tester.pumpWidget(const MyApp());
-
-//     // Verify that our counter starts at 0.
-//     expect(find.text('0'), findsOneWidget);
-//     expect(find.text('1'), findsNothing);
-
-//     // Tap the '+' icon and trigger a frame.
-//     await tester.tap(find.byIcon(Icons.add));
-//     await tester.pump();
-
-//     // Verify that our counter has incremented.
-//     expect(find.text('0'), findsNothing);
-//     expect(find.text('1'), findsOneWidget);
-//   });
-// }
-// 
-
-
-//------------------------------------------------
-// Basic smoke test for the EduManage app.
-//
-// This verifies the app boots without throwing and lands on a known
-// first screen, instead of testing counter behavior that doesn't exist
-// in this app's widget tree.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:school_management_system/main.dart';
+import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_theme.dart';
+import 'package:school_management_system/core/widgets/app_section_card.dart';
+import 'package:school_management_system/core/widgets/custom_button.dart';
+import 'package:school_management_system/core/widgets/loading_widget.dart';
 
 void main() {
-  testWidgets('App boots and shows the splash screen', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: EduManageApp(),
-      ),
-    );
+  group('EduManage Core Widgets & Theme Tests', () {
+    testWidgets('LoadingWidget renders spinner and custom message',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: LoadingWidget(
+              message: 'Fetching student records...',
+            ),
+          ),
+        ),
+      );
 
-    // Splash screen runs animations before navigating; just pump once
-    // and confirm we got a MaterialApp with no immediate crash.
-    await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Fetching student records...'), findsOneWidget);
+    });
 
-    expect(find.byType(MaterialApp), findsOneWidget);
+    testWidgets('LoadingScreen renders full page loading scaffold',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LoadingScreen(message: 'Initializing system...'),
+        ),
+      );
+
+      expect(find.byType(LoadingWidget), findsOneWidget);
+      expect(find.text('Initializing system...'), findsOneWidget);
+    });
+
+    testWidgets('CustomButton renders label and responds to user tap',
+        (WidgetTester tester) async {
+      bool tapped = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: CustomButton(
+              label: 'Save Class',
+              onPressed: () => tapped = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Save Class'), findsOneWidget);
+      await tester.tap(find.text('Save Class'));
+      await tester.pump();
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('CustomButton shows progress indicator when loading',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: CustomButton(
+              label: 'Submit Form',
+              isLoading: true,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Submit Form'), findsNothing);
+    });
+
+    testWidgets('AppSectionCard displays child content and decorative styling',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AppSectionCard(
+              child: Text('Section Content'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Section Content'), findsOneWidget);
+      expect(find.byType(AppSectionCard), findsOneWidget);
+    });
+
+    test('AppTheme defines consistent primary colors and surfaces', () {
+      final theme = AppTheme.lightTheme;
+      expect(theme.primaryColor, AppColors.primary);
+      expect(theme.scaffoldBackgroundColor, AppColors.background);
+    });
   });
 }

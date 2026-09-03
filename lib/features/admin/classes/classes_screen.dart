@@ -101,7 +101,7 @@ class ClassesScreen extends StatelessWidget {
                     }
 
                     final teachers = (snap.data ?? [])
-                        .where((t) => t.isApproved)
+                        .where((t) => t.approved)
                         .toList();
 
                     if (teachers.isEmpty) {

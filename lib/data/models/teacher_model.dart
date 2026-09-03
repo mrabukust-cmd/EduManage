@@ -12,6 +12,8 @@ class TeacherModel {
   final bool approved;
   final DateTime? createdAt;
 
+  bool get isApproved => approved;
+
   const TeacherModel({
     required this.id,
     required this.name,
