@@ -46,3 +46,7 @@ npm test
 
 ## Health Check
 - `GET /api/v1/health`
+
+## API Documentation
+Full endpoint contracts, schemas, request/response examples, and Flutter integration details are documented in [docs/API_DOCUMENTATION.md](../docs/API_DOCUMENTATION.md).
+
