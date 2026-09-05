@@ -2,8 +2,14 @@ const classesService = require('./classes.service');
 const { asyncHandler } = require('../../middleware/error.middleware');
 
 const getAll = asyncHandler(async (req, res) => {
-  const classes = await classesService.getAll();
-  res.status(200).json({ success: true, count: classes.length, data: classes });
+  const result = await classesService.getAll(req.query);
+  const classes = result.items || result;
+  res.status(200).json({
+    success: true,
+    count: classes.length,
+    pagination: result.pagination,
+    data: classes,
+  });
 });
 
 const getById = asyncHandler(async (req, res) => {

@@ -1,10 +1,14 @@
 const db = require('../../db/store');
 const { AppError } = require('../../middleware/error.middleware');
+const { applyFilterAndPagination } = require('../../middleware/query.middleware');
 
 class ClassesService {
-  async getAll() {
+  async getAll(query = {}) {
     const classes = db.collection('classes').find();
-    return classes.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!query.sortBy) {
+      classes.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+    return applyFilterAndPagination(classes, query, ['name', 'classTeacher', 'room']);
   }
 
   async getById(id) {

@@ -1,5 +1,6 @@
 const db = require('../../db/store');
 const { AppError } = require('../../middleware/error.middleware');
+const { applyFilterAndPagination } = require('../../middleware/query.middleware');
 
 class StudentsService {
   async getAll(query = {}) {
@@ -17,7 +18,11 @@ class StudentsService {
       students = students.filter((s) => s.approved === isApproved);
     }
 
-    return students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!query.sortBy) {
+      students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+
+    return applyFilterAndPagination(students, query, ['name', 'email', 'rollNo', 'class', 'section']);
   }
 
   async getById(id) {

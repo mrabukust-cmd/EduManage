@@ -2,8 +2,14 @@ const studentsService = require('./students.service');
 const { asyncHandler } = require('../../middleware/error.middleware');
 
 const getAll = asyncHandler(async (req, res) => {
-  const students = await studentsService.getAll(req.query);
-  res.status(200).json({ success: true, count: students.length, data: students });
+  const result = await studentsService.getAll(req.query);
+  const students = result.items || result;
+  res.status(200).json({
+    success: true,
+    count: students.length,
+    pagination: result.pagination,
+    data: students,
+  });
 });
 
 const getById = asyncHandler(async (req, res) => {
