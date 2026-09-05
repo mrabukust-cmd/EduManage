@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/api_response.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -16,11 +18,56 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
+  static const String tokenStorageKey = 'edumanage_jwt_auth_token';
+
   final http.Client _client;
   String? _authToken;
 
-  void setAuthToken(String? token) {
+  String? get authToken => _authToken;
+
+  /// Loads token stored in SharedPreferences if available.
+  Future<void> initAuthToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _authToken = prefs.getString(tokenStorageKey);
+    } catch (_) {
+      // Ignored if storage is unavailable (e.g. unit tests)
+    }
+  }
+
+  /// Sets the bearer auth token, optionally persisting to SharedPreferences.
+  void setAuthToken(String? token, {bool persist = true}) {
     _authToken = token;
+    if (persist) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (token != null && token.isNotEmpty) {
+          prefs.setString(tokenStorageKey, token);
+        } else {
+          prefs.remove(tokenStorageKey);
+        }
+      }).catchError((_) {});
+    }
+  }
+
+  /// Clears active auth token from memory and persistent storage.
+  void clearAuthToken() {
+    setAuthToken(null, persist: true);
+  }
+
+  Uri _buildUri(String url, [Map<String, dynamic>? queryParams]) {
+    final uri = Uri.parse(url);
+    if (queryParams == null || queryParams.isEmpty) {
+      return uri;
+    }
+
+    final mergedParams = Map<String, dynamic>.from(uri.queryParameters);
+    queryParams.forEach((key, value) {
+      if (value != null) {
+        mergedParams[key] = value.toString();
+      }
+    });
+
+    return uri.replace(queryParameters: mergedParams);
   }
 
   Map<String, String> _headers([Map<String, String>? extra]) {
@@ -37,11 +84,17 @@ class ApiClient {
     return headers;
   }
 
-  Future<dynamic> get(String url, {Map<String, String>? headers}) async {
+  Future<dynamic> get(
+    String url, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     try {
+      final uri = _buildUri(url, queryParameters);
       final response = await _client
-          .get(Uri.parse(url), headers: _headers(headers))
-          .timeout(const Duration(seconds: 15));
+          .get(uri, headers: _headers(headers))
+          .timeout(timeout);
       return _handleResponse(response);
     } on SocketException {
       throw const ApiException('Network error: Unable to connect to server');
@@ -52,17 +105,20 @@ class ApiClient {
 
   Future<dynamic> post(
     String url, {
-    Map<String, dynamic>? body,
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
+      final uri = _buildUri(url, queryParameters);
       final response = await _client
           .post(
-            Uri.parse(url),
+            uri,
             headers: _headers(headers),
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(timeout);
       return _handleResponse(response);
     } on SocketException {
       throw const ApiException('Network error: Unable to connect to server');
@@ -73,17 +129,20 @@ class ApiClient {
 
   Future<dynamic> put(
     String url, {
-    Map<String, dynamic>? body,
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
+      final uri = _buildUri(url, queryParameters);
       final response = await _client
           .put(
-            Uri.parse(url),
+            uri,
             headers: _headers(headers),
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(timeout);
       return _handleResponse(response);
     } on SocketException {
       throw const ApiException('Network error: Unable to connect to server');
@@ -92,16 +151,76 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> delete(String url, {Map<String, String>? headers}) async {
+  Future<dynamic> patch(
+    String url, {
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     try {
+      final uri = _buildUri(url, queryParameters);
       final response = await _client
-          .delete(Uri.parse(url), headers: _headers(headers))
-          .timeout(const Duration(seconds: 15));
+          .patch(
+            uri,
+            headers: _headers(headers),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(timeout);
       return _handleResponse(response);
     } on SocketException {
       throw const ApiException('Network error: Unable to connect to server');
     } on http.ClientException catch (e) {
       throw ApiException('Client error: ${e.message}');
+    }
+  }
+
+  Future<dynamic> delete(
+    String url, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    try {
+      final uri = _buildUri(url, queryParameters);
+      final response = await _client
+          .delete(uri, headers: _headers(headers))
+          .timeout(timeout);
+      return _handleResponse(response);
+    } on SocketException {
+      throw const ApiException('Network error: Unable to connect to server');
+    } on http.ClientException catch (e) {
+      throw ApiException('Client error: ${e.message}');
+    }
+  }
+
+  /// Sends a request and wraps the result in a strongly typed ApiResponse<T>.
+  Future<ApiResponse<T>> request<T>(
+    Future<dynamic> Function() caller, {
+    T Function(dynamic json)? mapper,
+  }) async {
+    try {
+      final raw = await caller();
+      if (raw is Map<String, dynamic> && raw.containsKey('success')) {
+        return ApiResponse<T>.fromJson(raw, mapper);
+      }
+      final parsed = mapper != null ? mapper(raw) : raw as T;
+      return ApiResponse<T>(
+        success: true,
+        data: parsed,
+        statusCode: 200,
+      );
+    } on ApiException catch (e) {
+      return ApiResponse<T>.error(
+        e.message,
+        statusCode: e.statusCode,
+        errors: e.data,
+      );
+    } catch (e) {
+      return ApiResponse<T>.error(
+        e.toString(),
+        statusCode: 500,
+      );
     }
   }
 
