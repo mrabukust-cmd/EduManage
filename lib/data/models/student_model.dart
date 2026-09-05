@@ -25,16 +25,22 @@ class StudentModel {
   });
 
   factory StudentModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val);
+      return null;
+    }
+
     return StudentModel(
       id: id,
       name: map['name'] as String? ?? 'Unknown',
       email: map['email'] as String? ?? '',
       rollNo: map['rollNo'] as String? ?? '-',
-      className: map['class'] as String? ?? 'Unknown',
+      className: map['class'] as String? ?? map['className'] as String? ?? 'Unknown',
       section: map['section'] as String? ?? '-',
       contact: map['contact'] as String? ?? '-',
       approved: map['approved'] as bool? ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: parseDate(map['createdAt']),
     );
   }
 

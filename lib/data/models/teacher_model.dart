@@ -27,6 +27,12 @@ class TeacherModel {
   });
 
   factory TeacherModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val);
+      return null;
+    }
+
     return TeacherModel(
       id: id,
       name: map['name'] as String? ?? 'Unknown',
@@ -39,7 +45,7 @@ class TeacherModel {
               .toList() ??
           const [],
       approved: map['approved'] as bool? ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: parseDate(map['createdAt']),
     );
   }
 

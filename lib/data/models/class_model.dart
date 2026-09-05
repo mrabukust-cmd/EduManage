@@ -23,6 +23,7 @@ class ClassModel {
   factory ClassModel.fromMap(String id, Map<String, dynamic> map) {
     DateTime? parseDate(dynamic val) {
       if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val);
       return null;
     }
 
