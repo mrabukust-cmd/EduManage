@@ -5,6 +5,7 @@ import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
 import 'package:school_management_system/core/utils/data_helpers.dart';
 import 'package:school_management_system/data/models/result_model.dart';
+import 'package:school_management_system/data/providers/api_providers.dart';
 import 'package:school_management_system/data/repositories/result_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
@@ -39,7 +40,20 @@ class StudentResultsScreen extends ConsumerWidget {
                 final results = snap.data ?? [];
 
                 if (results.isEmpty) {
-                  return _EmptyResults();
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      if (uid.isNotEmpty) {
+                        ref.invalidate(apiResultsProvider(uid));
+                      }
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: _EmptyResults(),
+                      ),
+                    ),
+                  );
                 }
 
                 // Group by examTitle
@@ -49,7 +63,13 @@ class StudentResultsScreen extends ConsumerWidget {
                   grouped.putIfAbsent(exam, () => []).add(item);
                 }
 
-                return ListView(
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    if (uid.isNotEmpty) {
+                      ref.invalidate(apiResultsProvider(uid));
+                    }
+                  },
+                  child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
                     // ── Overall GPA card ────────────────────────
@@ -63,9 +83,10 @@ class StudentResultsScreen extends ConsumerWidget {
                         )),
                     const SizedBox(height: 32),
                   ],
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/data/providers/api_providers.dart';
 import 'package:school_management_system/data/repositories/student_repository.dart';
 import 'package:school_management_system/data/repositories/teacher_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
@@ -43,40 +44,56 @@ class TeacherClassesScreen extends ConsumerWidget {
                 final assignedClasses = snap.data ?? [];
 
                 if (assignedClasses.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.class_outlined,
-                              size: 64, color: AppColors.textHint),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No classes assigned yet.\nAsk admin to assign you to a class.',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.bodyMedium
-                                .copyWith(color: AppColors.textSecondary),
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(apiClassesProvider);
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.class_outlined,
+                                    size: 64, color: AppColors.textHint),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No classes assigned yet.\nAsk admin to assign you to a class.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.bodyMedium
+                                      .copyWith(color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   );
                 }
 
-                return ListView.separated(
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(apiClassesProvider);
+                  },
+                  child: ListView.separated(
                   padding: const EdgeInsets.all(20),
                   itemCount: assignedClasses.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     return _ClassTile(
                       className: assignedClasses[index],
                       teacherName: teacherName,
                     );
                   },
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
     );
   }
 }
