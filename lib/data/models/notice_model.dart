@@ -21,13 +21,19 @@ class NoticeModel {
   });
 
   factory NoticeModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String && val.isNotEmpty) return DateTime.tryParse(val);
+      return null;
+    }
+
     return NoticeModel(
       id: id,
       title: map['title'] as String? ?? '',
       body: map['body'] as String? ?? '',
       category: map['category'] as String? ?? 'General',
       author: map['author'] as String? ?? 'Admin',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: parseDate(map['createdAt']) ?? parseDate(map['timestamp']),
     );
   }
 

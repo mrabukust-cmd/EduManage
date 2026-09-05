@@ -29,6 +29,7 @@ class TimetableModel {
   factory TimetableModel.fromMap(String id, Map<String, dynamic> map) {
     DateTime? parseDate(dynamic val) {
       if (val is Timestamp) return val.toDate();
+      if (val is String && val.isNotEmpty) return DateTime.tryParse(val);
       return null;
     }
 

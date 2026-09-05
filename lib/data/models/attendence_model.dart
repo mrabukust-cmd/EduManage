@@ -38,6 +38,12 @@ class AttendanceModel {
   });
 
   factory AttendanceModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String && val.isNotEmpty) return DateTime.tryParse(val);
+      return null;
+    }
+
     return AttendanceModel(
       id: id,
       studentId: map['studentId'] as String? ?? '',
@@ -45,8 +51,7 @@ class AttendanceModel {
       className: map['className'] as String? ?? '',
       date: map['date'] as String? ?? '',
       status: attendanceStatusFromString(map['status'] as String?),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ??
-          (map['timestamp'] as Timestamp?)?.toDate(),
+      createdAt: parseDate(map['createdAt']) ?? parseDate(map['timestamp']),
     );
   }
 
