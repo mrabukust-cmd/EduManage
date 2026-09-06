@@ -63,4 +63,7 @@ class NoticeModel {
     ];
     return '${months[createdAt!.month - 1]} ${createdAt!.day}';
   }
+
+  /// Alias for `body` for convenience and backwards compatibility.
+  String get description => body;
 }

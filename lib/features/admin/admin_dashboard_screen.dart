@@ -5,6 +5,7 @@ import 'package:school_management_system/core/constants/stat_card.dart';
 import 'package:school_management_system/core/router/route_names.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/data/models/notice_model.dart';
 import 'package:school_management_system/data/providers/repository_providers.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
@@ -15,6 +16,8 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final avatarRadius = 6.w.clamp(20.0, 26.0);
+    final avatarIconSize = 6.w.clamp(22.0, 28.0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -22,7 +25,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         slivers: [
           // ── App Bar ───────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 180,
+            expandedHeight: 22.h.clamp(170.0, 210.0),
             pinned: true,
             elevation: 0,
             backgroundColor: AppColors.adminColor,
@@ -61,7 +64,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                           GestureDetector(
                             onTap: () => context.push(RouteNames.profile),
                             child: CircleAvatar(
-                              radius: 24,
+                              radius: avatarRadius,
                               backgroundColor: AppColors.onPrimary.withValues(alpha: 0.2),
                               child: user?.photoURL != null
                                   ? ClipOval(
@@ -70,10 +73,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                                         fit: BoxFit.cover,
                                       ),
                                     )
-                                  : const Icon(
+                                  : Icon(
                                       Icons.person_rounded,
                                       color: AppColors.onPrimary,
-                                      size: 26,
+                                      size: avatarIconSize,
                                     ),
                             ),
                           ),
@@ -123,13 +126,13 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   Widget _buildStatsGrid(WidgetRef ref) {
     final studentCount =
-        ref.watch(studentsTotalCountProvider).valueOrNull?.toString() ?? '...';
+        ref.watch(studentsTotalCountProvider).value?.toString() ?? '...';
     final teacherCount =
-        ref.watch(teachersTotalCountProvider).valueOrNull?.toString() ?? '...';
+        ref.watch(teachersTotalCountProvider).value?.toString() ?? '...';
     final classCount =
-        ref.watch(classesCountProvider).valueOrNull?.toString() ?? '...';
+        ref.watch(classesCountProvider).value?.toString() ?? '...';
     final noticeCount =
-        ref.watch(noticesTotalCountProvider).valueOrNull?.toString() ?? '...';
+        ref.watch(noticesTotalCountProvider).value?.toString() ?? '...';
 
     return GridView.count(
       crossAxisCount: 2,
@@ -169,7 +172,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   Widget _buildQuickActions(BuildContext context, WidgetRef ref) {
     final classCountAsync = ref.watch(classesCountProvider);
-    final hasClasses = (classCountAsync.valueOrNull ?? 0) > 0;
+    final hasClasses = (classCountAsync.value ?? 0) > 0;
 
     final actions = [
       const _Action('Add Student', Icons.person_add_rounded, AppColors.adminColor),
@@ -307,18 +310,24 @@ class _NoticeCard extends StatelessWidget {
 
   Color get _typeColor {
     switch (notice.category.toLowerCase()) {
-      case 'urgent':
+      case 'event':
+        return AppColors.categoryEvent;
       case 'exam':
-        return AppColors.warning;
+        return AppColors.categoryExam;
+      case 'finance':
+        return AppColors.categoryFinance;
       case 'holiday':
-        return AppColors.success;
+        return AppColors.categoryHoliday;
       default:
-        return AppColors.info;
+        return AppColors.categoryGeneral;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final iconBoxSize = 11.w.clamp(40.0, 48.0);
+    final iconSize = 5.5.w.clamp(20.0, 24.0);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -330,13 +339,13 @@ class _NoticeCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: iconBoxSize,
+            height: iconBoxSize,
             decoration: BoxDecoration(
               color: _typeColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.campaign_rounded, color: _typeColor, size: 22),
+            child: Icon(Icons.campaign_rounded, color: _typeColor, size: iconSize),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -351,7 +360,7 @@ class _NoticeCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  notice.description,
+                  notice.body,
                   style: AppTextStyles.bodySmall,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

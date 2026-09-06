@@ -206,8 +206,7 @@ class _FeeManagementScreenState extends State<FeeManagementScreen>
                 CustomButton(
                   label: 'Save Fee Record',
                   isLoading: loading,
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                  gradient: AppColors.financeGradient,
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
                     setSheet(() => loading = true);
@@ -504,8 +503,7 @@ class _SummaryTab extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFF22C55E), Color(0xFF16A34A)]),
+                  gradient: AppColors.successGradient,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: AppColors.cardShadow,
                 ),
@@ -514,7 +512,7 @@ class _SummaryTab extends StatelessWidget {
                     children: [
                       Text('Total Collected',
                           style: AppTextStyles.labelMedium
-                              .copyWith(color: Colors.white70)),
+                              .copyWith(color: AppColors.white.withValues(alpha: 0.7))),
                       const SizedBox(height: 8),
                       Text('Rs. ${_fmt(totalCollected)}',
                           style: const TextStyle(

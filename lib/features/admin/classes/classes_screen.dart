@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/data/models/class_model.dart';
-import 'package:school_management_system/data/models/teacher_model.dart';
 import 'package:school_management_system/data/providers/repository_providers.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -216,7 +216,7 @@ class ClassesScreen extends ConsumerWidget {
                           id: '',
                           name: rawName,
                           classTeacher: selectedTeacherName ?? '',
-                          teacherId: selectedTeacherId ?? '',
+                          classTeacherId: selectedTeacherId,
                           createdAt: DateTime.now(),
                         );
 
@@ -350,7 +350,7 @@ class _ClassCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final countAsync = ref.watch(studentCountByClassProvider(name));
-    final count = countAsync.valueOrNull ?? 0;
+    final count = countAsync.value ?? 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -384,7 +384,7 @@ class _ClassCard extends ConsumerWidget {
                 icon: Icon(
                   Icons.more_vert_rounded,
                   color: AppColors.onPrimary.withValues(alpha: 0.7),
-                  size: 18,
+                  size: 5.w.clamp(16.0, 20.0),
                 ),
                 onSelected: (v) {
                   if (v == 'delete') {
@@ -402,7 +402,7 @@ class _ClassCard extends ConsumerWidget {
             name,
             style: AppTextStyles.bodyMediumBold.copyWith(
               color: AppColors.onPrimary,
-              fontSize: 16,
+              fontSize: 14.sp,
             ),
             overflow: TextOverflow.ellipsis,
           ),

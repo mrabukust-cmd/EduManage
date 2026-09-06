@@ -7,11 +7,11 @@ import 'package:school_management_system/data/repositories/notice_repo.dart';
 import 'package:school_management_system/data/services/notification_helper.dart';
 
 const _categoryColors = {
-  'Event':   Color(0xFF7C3AED),
-  'Exam':    Color(0xFF1A56DB),
-  'Finance': Color(0xFFE67E22),
-  'Holiday': Color(0xFF059669),
-  'General': Color(0xFF6B7280),
+  'Event':   AppColors.categoryEvent,
+  'Exam':    AppColors.categoryExam,
+  'Finance': AppColors.categoryFinance,
+  'Holiday': AppColors.categoryHoliday,
+  'General': AppColors.categoryGeneral,
 };
 
 // ── Notice Board Screen ───────────────────────────────────────────────────────
