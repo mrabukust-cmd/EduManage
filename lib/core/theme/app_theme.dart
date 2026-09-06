@@ -18,6 +18,7 @@ class AppTheme {
         surface: AppColors.surface,
         error: AppColors.danger,
       ),
+
       scaffoldBackgroundColor: AppColors.background,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surface,
@@ -25,7 +26,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
+          statusBarColor: AppColors.transparent,
           statusBarIconBrightness: Brightness.dark,
         ),
       ),
