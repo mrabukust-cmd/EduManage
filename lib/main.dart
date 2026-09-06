@@ -17,6 +17,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_text_style.dart';
+import 'core/utils/responsive_sizer.dart';
 import 'data/services/local_notification_service.dart';
 import 'data/services/notification_service.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -153,12 +154,16 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
       }
     });
 
-    return MaterialApp.router(
-      title: 'EduManage',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: router,
-      scaffoldMessengerKey: rootScaffoldMessengerKey,
+    return ResponsiveSizer(
+      builder: (context, orientation, screenType) {
+        return MaterialApp.router(
+          title: 'EduManage',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          routerConfig: router,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+        );
+      },
     );
   }
 }
