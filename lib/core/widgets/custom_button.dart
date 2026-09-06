@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_dimensions.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 
 class CustomButton extends StatelessWidget {
   final String label;
@@ -10,7 +11,7 @@ class CustomButton extends StatelessWidget {
   final Gradient? gradient;
   final Color? backgroundColor;
   final Color? textColor;
-  final double height;
+  final double? height;
   final double? width;
   final double borderRadius;
   final IconData? icon;
@@ -23,7 +24,7 @@ class CustomButton extends StatelessWidget {
     this.gradient,
     this.backgroundColor,
     this.textColor,
-    this.height = 52,
+    this.height,
     this.width,
     this.borderRadius = AppDimensions.radiusMedium,
     this.icon,
@@ -31,11 +32,15 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveHeight = height ?? 6.2.h.clamp(48.0, 56.0);
+    final iconSize = 5.w.clamp(18.0, 22.0);
+    final loaderSize = 5.w.clamp(20.0, 24.0);
+
     return GestureDetector(
       onTap: isLoading ? null : onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: height,
+        height: effectiveHeight,
         width: width ?? double.infinity,
         decoration: BoxDecoration(
           gradient: gradient ?? AppColors.primaryGradient,
@@ -53,10 +58,10 @@ class CustomButton extends StatelessWidget {
         ),
         child: Center(
           child: isLoading
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
+              ? SizedBox(
+                  width: loaderSize,
+                  height: loaderSize,
+                  child: const CircularProgressIndicator(
                     strokeWidth: 2.5,
                     color: AppColors.onPrimary,
                   ),
@@ -65,8 +70,8 @@ class CustomButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, color: textColor ?? AppColors.onPrimary, size: 20),
-                      const SizedBox(width: AppDimensions.space8),
+                      Icon(icon, color: textColor ?? AppColors.onPrimary, size: iconSize),
+                      SizedBox(width: 2.w.clamp(6.0, 10.0)),
                     ],
                     Text(
                       label,
@@ -87,7 +92,7 @@ class CustomOutlineButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color? borderColor;
   final Color? textColor;
-  final double height;
+  final double? height;
   final IconData? icon;
 
   const CustomOutlineButton({
@@ -96,16 +101,19 @@ class CustomOutlineButton extends StatelessWidget {
     this.onPressed,
     this.borderColor,
     this.textColor,
-    this.height = 52,
+    this.height,
     this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveHeight = height ?? 6.2.h.clamp(48.0, 56.0);
+    final iconSize = 5.w.clamp(18.0, 22.0);
+
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        height: height,
+        height: effectiveHeight,
         width: double.infinity,
         decoration: BoxDecoration(
           color: AppColors.transparent,
@@ -120,8 +128,8 @@ class CustomOutlineButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, color: textColor ?? AppColors.primary, size: 20),
-                const SizedBox(width: AppDimensions.space8),
+                Icon(icon, color: textColor ?? AppColors.primary, size: iconSize),
+                SizedBox(width: 2.w.clamp(6.0, 10.0)),
               ],
               Text(
                 label,

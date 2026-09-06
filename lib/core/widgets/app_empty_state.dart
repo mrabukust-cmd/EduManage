@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_dimensions.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'custom_button.dart';
 
 class AppEmptyState extends StatelessWidget {
@@ -24,6 +25,9 @@ class AppEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final circleSize = isCompact ? 14.w.clamp(48.0, 58.0) : 20.w.clamp(68.0, 84.0);
+    final iconSize = isCompact ? 7.w.clamp(24.0, 30.0) : 10.w.clamp(34.0, 42.0);
+
     return Center(
       child: Padding(
         padding: EdgeInsets.all(isCompact ? AppDimensions.space16 : AppDimensions.space32),
@@ -32,8 +36,8 @@ class AppEmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: isCompact ? 56 : 80,
-              height: isCompact ? 56 : 80,
+              width: circleSize,
+              height: circleSize,
               decoration: BoxDecoration(
                 color: AppColors.primarySubtle,
                 shape: BoxShape.circle,
@@ -41,7 +45,7 @@ class AppEmptyState extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                size: isCompact ? 28 : 40,
+                size: iconSize,
                 color: AppColors.primary,
               ),
             ),
@@ -49,14 +53,19 @@ class AppEmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: isCompact ? AppTextStyles.titleMedium : AppTextStyles.headingMedium,
+              style: isCompact
+                  ? AppTextStyles.titleMedium.copyWith(fontSize: 14.sp)
+                  : AppTextStyles.headingMedium.copyWith(fontSize: 16.sp),
             ),
             if (subtitle != null && subtitle!.isNotEmpty) ...[
               const SizedBox(height: AppDimensions.space8),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontSize: 12.sp,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
@@ -64,8 +73,8 @@ class AppEmptyState extends StatelessWidget {
               CustomButton(
                 label: actionLabel!,
                 onPressed: onAction,
-                width: 160,
-                height: 44,
+                width: 44.w.clamp(140.0, 180.0),
+                height: 5.5.h.clamp(42.0, 48.0),
               ),
             ],
           ],
