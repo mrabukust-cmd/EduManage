@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/router/route_names.dart';
 
@@ -30,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
     );
@@ -99,32 +101,17 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final onboardingDone = prefs.getBool('onboarding_done') ?? false;
-    final userRole = prefs.getString('user_role');
 
     if (!mounted) return;
 
     if (!onboardingDone) {
       context.go(RouteNames.onboarding);
-    } else if (userRole != null) {
-      switch (userRole) {
-        case 'admin':
-          context.go(RouteNames.adminHome);
-          break;
-        case 'teacher':
-          context.go(RouteNames.teacherHome);
-          break;
-        case 'parent':
-          context.go(RouteNames.parentHome);
-          break;
-        default:
-          context.go(RouteNames.studentHome);
-      }
-    } else {
-      context.go(RouteNames.login);
+      return;
     }
+
+    context.go(RouteNames.login);
   }
 
   @override
@@ -137,6 +124,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final outerRing = 40.w.clamp(140.0, 180.0);
+    final innerRing = 32.w.clamp(110.0, 140.0);
+    final logoContainer = 25.w.clamp(90.0, 110.0);
+    final logoIconSize = 13.w.clamp(44.0, 56.0);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.splashGradient),
@@ -161,24 +153,24 @@ class _SplashScreenState extends State<SplashScreen>
                                 children: [
                                   // Outer ring
                                   Container(
-                                    width: 160,
-                                    height: 160,
+                                    width: outerRing,
+                                    height: outerRing,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: Colors.white.withOpacity(0.15),
+                                        color: AppColors.white.withValues(alpha: 0.15),
                                         width: 1.5,
                                       ),
                                     ),
                                   ),
                                   // Inner ring
                                   Container(
-                                    width: 126,
-                                    height: 126,
+                                    width: innerRing,
+                                    height: innerRing,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: Colors.white.withOpacity(0.25),
+                                        color: AppColors.white.withValues(alpha: 0.25),
                                         width: 1.5,
                                       ),
                                     ),
@@ -187,13 +179,13 @@ class _SplashScreenState extends State<SplashScreen>
                                   ScaleTransition(
                                     scale: _logoScale,
                                     child: Container(
-                                      width: 100,
-                                      height: 100,
+                                      width: logoContainer,
+                                      height: logoContainer,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
+                                        color: AppColors.white.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(28),
                                         border: Border.all(
-                                          color: Colors.white.withOpacity(0.4),
+                                          color: AppColors.white.withValues(alpha: 0.4),
                                           width: 1.5,
                                         ),
                                       ),
@@ -202,11 +194,11 @@ class _SplashScreenState extends State<SplashScreen>
                                         child: Image.asset(
                                           'assets/logo/logo.png',
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Icon(
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              Icon(
                                                 Icons.school_rounded,
-                                                size: 52,
-                                                color: Colors.white,
+                                                size: logoIconSize,
+                                                color: AppColors.white,
                                               ),
                                         ),
                                       ),
@@ -219,33 +211,31 @@ class _SplashScreenState extends State<SplashScreen>
                         },
                       ),
 
-                      const SizedBox(height: 36),
+                      SizedBox(height: 4.h),
 
                       // App name
                       SlideTransition(
                         position: _textSlide,
                         child: FadeTransition(
                           opacity: _textFade,
-                          child: const Column(
+                          child: Column(
                             children: [
                               Text(
                                 'EduManage',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 34,
+                                style: AppTextStyles.headingLarge.copyWith(
+                                  fontSize: 26.sp,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                   letterSpacing: 1,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              SizedBox(height: 0.5.h),
                               Text(
                                 'School Management System',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 14,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  fontSize: 13.sp,
                                   fontWeight: FontWeight.w400,
-                                  color: Colors.white70,
+                                  color: AppColors.white.withValues(alpha: 0.75),
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -254,30 +244,30 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      SizedBox(height: 1.5.h),
 
+                      // Tagline badge
                       FadeTransition(
                         opacity: _taglineFade,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 4.w,
+                            vertical: 0.8.h,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(50),
+                            color: AppColors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
+                              color: AppColors.white.withValues(alpha: 0.25),
+                              width: 1,
                             ),
                           ),
-                          child: const Text(
-                            'KUST — Your Campus, Connected',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white70,
-                              letterSpacing: 1,
+                          child: Text(
+                            'Smart • Connected • Efficient',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontSize: 11.sp,
+                              color: AppColors.white.withValues(alpha: 0.9),
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ),
@@ -287,36 +277,17 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
 
-              // ── Bottom loading indicator ───────────────────────
-              FadeTransition(
-                opacity: _taglineFade,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 48),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: const LinearProgressIndicator(
-                            backgroundColor: Colors.white24,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            minHeight: 3,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'v1.0.0',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11,
-                          color: Colors.white38,
-                        ),
-                      ),
-                    ],
+              // Bottom indicator
+              Padding(
+                padding: EdgeInsets.only(bottom: 3.h),
+                child: SizedBox(
+                  width: 5.w.clamp(20.0, 24.0),
+                  height: 5.w.clamp(20.0, 24.0),
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.white,
+                    ),
                   ),
                 ),
               ),

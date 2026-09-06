@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_dimensions.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -84,17 +85,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
-  // Future<void> _finish() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   await prefs.setBool('onboarding_done', true);
-  //   if (mounted) context.go(RouteNames.login);
-  // }
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
 
     if (mounted) {
-      context.go('/login'); // ALWAYS LOGIN AFTER ONBOARDING
+      context.go('/login');
     }
   }
 
@@ -111,8 +107,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
       body: Stack(
         children: [
@@ -123,20 +117,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             itemCount: _pages.length,
             itemBuilder: (context, index) {
               final page = _pages[index];
-              return _buildPage(page, size);
+              return _buildPage(page);
             },
           ),
 
           // ── Skip button ────────────────────────────────────────
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            right: 24,
+            top: MediaQuery.of(context).padding.top + 2.h,
+            right: 6.w,
             child: TextButton(
               onPressed: _finish,
               child: Text(
                 'Skip',
                 style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.onPrimary.withOpacity(0.8),
+                  fontSize: 13.sp,
+                  color: AppColors.onPrimary.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -150,10 +145,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             right: 0,
             child: Container(
               padding: EdgeInsets.fromLTRB(
-                32,
-                24,
-                32,
-                MediaQuery.of(context).padding.bottom + 32,
+                8.w,
+                2.h,
+                8.w,
+                MediaQuery.of(context).padding.bottom + 3.h,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -165,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     count: _pages.length,
                     effect: ExpandingDotsEffect(
                       activeDotColor: AppColors.onPrimary,
-                      dotColor: AppColors.onPrimary.withOpacity(0.38),
+                      dotColor: AppColors.onPrimary.withValues(alpha: 0.38),
                       dotHeight: 8,
                       dotWidth: 8,
                       expansionFactor: 3,
@@ -177,16 +172,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     onTap: _nextPage,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 16,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 6.w,
+                        vertical: 1.8.h,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.onPrimary,
                         borderRadius: BorderRadius.circular(50),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.overlay.withOpacity(0.15),
+                            color: AppColors.overlay.withValues(alpha: 0.15),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -200,14 +195,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 ? 'Get Started'
                                 : 'Next',
                             style: AppTextStyles.bodyMediumBold.copyWith(
-                              fontSize: 15,
+                              fontSize: 13.sp,
                               color: _pages[_currentPage].accentColor,
                             ),
                           ),
-                          const SizedBox(width: AppDimensions.space8),
+                          SizedBox(width: 2.w),
                           Icon(
                             Icons.arrow_forward_rounded,
-                            size: 18,
+                            size: 4.w.clamp(16.0, 20.0),
                             color: _pages[_currentPage].accentColor,
                           ),
                         ],
@@ -223,14 +218,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Widget _buildPage(_OnboardingPage page, Size size) {
+  Widget _buildPage(_OnboardingPage page) {
+    final outerRingSize = 58.w.clamp(200.0, 260.0);
+    final innerRingSize = 46.w.clamp(160.0, 200.0);
+    final iconBoxSize = 34.w.clamp(120.0, 150.0);
+    final iconSize = 16.w.clamp(56.0, 76.0);
+
     return Container(
       decoration: BoxDecoration(gradient: page.gradient),
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: AppDimensions.space32 + AppDimensions.space24 + AppDimensions.space4),
+            SizedBox(height: 6.h),
 
             // ── Icon illustration area ─────────────────────────
             Expanded(
@@ -249,34 +249,34 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     children: [
                       // Large glow circle
                       Container(
-                        width: 240,
-                        height: 240,
+                        width: outerRingSize,
+                        height: outerRingSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.onPrimary.withOpacity(0.08),
+                          color: AppColors.onPrimary.withValues(alpha: 0.08),
                         ),
                       ),
                       Container(
-                        width: 190,
-                        height: 190,
+                        width: innerRingSize,
+                        height: innerRingSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.onPrimary.withOpacity(0.12),
+                          color: AppColors.onPrimary.withValues(alpha: 0.12),
                         ),
                       ),
                       // Icon container
                       Container(
-                        width: 140,
-                        height: 140,
+                        width: iconBoxSize,
+                        height: iconBoxSize,
                         decoration: BoxDecoration(
-                          color: AppColors.onPrimary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(44),
+                          color: AppColors.onPrimary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusLarge + 16),
                           border: Border.all(
-                            color: AppColors.onPrimary.withOpacity(0.35),
+                            color: AppColors.onPrimary.withValues(alpha: 0.35),
                             width: 2,
                           ),
                         ),
-                        child: Icon(page.icon, size: 72, color: AppColors.onPrimary),
+                        child: Icon(page.icon, size: iconSize, color: AppColors.onPrimary),
                       ),
                     ],
                   ),
@@ -288,45 +288,46 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             Expanded(
               flex: 4,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 36),
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Page number badge
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 4.w,
+                        vertical: 0.6.h,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.onPrimary.withOpacity(0.15),
+                        color: AppColors.onPrimary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(50),
                       ),
                       child: Text(
                         '0${_currentPage + 1} / 0${_pages.length}',
                         style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.onPrimary.withOpacity(0.8),
+                          fontSize: 11.sp,
+                          color: AppColors.onPrimary.withValues(alpha: 0.85),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppDimensions.space20),
+                    SizedBox(height: 2.h),
                     Text(
                       page.title,
                       textAlign: TextAlign.center,
                       style: AppTextStyles.headingLarge.copyWith(
-                        fontSize: 28,
+                        fontSize: 22.sp,
                         color: AppColors.onPrimary,
                       ),
                     ),
-                    const SizedBox(height: AppDimensions.space16),
+                    SizedBox(height: 1.5.h),
                     Text(
                       page.subtitle,
                       textAlign: TextAlign.center,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        fontSize: 15,
-                        color: AppColors.onPrimary.withOpacity(0.8),
-                        height: 1.65,
+                        fontSize: 13.sp,
+                        color: AppColors.onPrimary.withValues(alpha: 0.85),
+                        height: 1.6,
                       ),
                     ),
                   ],
@@ -335,7 +336,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
 
             // Space for bottom controls
-            const SizedBox(height: 120),
+            SizedBox(height: 12.h),
           ],
         ),
       ),

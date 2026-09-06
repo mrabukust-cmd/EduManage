@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
+import 'package:school_management_system/core/theme/app_dimensions.dart';
+import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -76,7 +79,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
           ),
         ),
       );
@@ -86,24 +89,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final backBtnSize = 10.w.clamp(36.0, 44.0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: Container(
-            width: 40,
-            height: 40,
+            width: backBtnSize,
+            height: backBtnSize,
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
               border: Border.all(color: AppColors.divider),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.arrow_back_ios_new_rounded,
-              size: 16,
+              size: 4.w.clamp(14.0, 18.0),
               color: AppColors.textPrimary,
             ),
           ),
@@ -115,44 +119,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         child: FadeTransition(
           opacity: _fade,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+            padding: EdgeInsets.fromLTRB(6.w, 1.h, 6.w, 4.h),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Header ───────────────────────────────────
-                  const Text(
+                  Text(
                     'Create Account',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                    style: AppTextStyles.headingLarge.copyWith(
+                      fontSize: 24.sp,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 0.8.h),
+                  Text(
                     'Join EduManage and get started today',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 14,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontSize: 13.sp,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 3.h),
 
                   // ── Role selection ───────────────────────────
-                  const Text(
+                  Text(
                     'I am a',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      fontSize: 12.sp,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 1.h),
                   Row(
                     children: [
                       _buildRoleCard(
@@ -162,7 +161,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         color: AppColors.teacherColor,
                         gradient: AppColors.teacherGradient,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 2.5.w),
                       _buildRoleCard(
                         role: 'student',
                         label: 'Student',
@@ -170,7 +169,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         color: AppColors.studentColor,
                         gradient: AppColors.studentGradient,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 2.5.w),
                       _buildRoleCard(
                         role: 'parent',
                         label: 'Parent',
@@ -180,13 +179,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       ),
                     ],
                   ),
-                  // FIXED: removed a second Row here that re-rendered a
-                  // lone duplicate "Parent" card directly below the row
-                  // above (which already includes Parent). It was dead
-                  // weight — harmless functionally since tapping it just
-                  // re-set _selectedRole = 'parent', but visually showed
-                  // an orphaned card with no teacher/student counterpart.
-                  const SizedBox(height: 28),
+                  SizedBox(height: 3.h),
 
                   // ── Form fields ──────────────────────────────
                   CustomTextField(
@@ -198,87 +191,91 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       if (v == null || v.trim().isEmpty) {
                         return 'Full name is required';
                       }
-                      if (v.trim().length < 3) return 'Name too short';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  CustomTextField(
-                    label: 'Email Address',
-                    hint: 'you@kust.edu.pk',
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Email is required';
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$',
-                      ).hasMatch(v)) {
-                        return 'Enter a valid email';
+                      if (v.trim().length < 3) {
+                        return 'Name must be at least 3 characters';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 2.h),
+
+                  CustomTextField(
+                    label: 'Email Address',
+                    hint: 'your@email.com',
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: Icons.email_outlined,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Email is required';
+                      }
+                      if (!v.contains('@') || !v.contains('.')) {
+                        return 'Enter a valid email address';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 2.h),
 
                   CustomTextField(
                     label: 'Password',
-                    hint: 'At least 6 characters',
+                    hint: 'Min. 6 characters',
                     controller: _passCtrl,
                     isPassword: true,
                     prefixIcon: Icons.lock_outline_rounded,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Password is required';
-                      if (v.length < 6) return 'Minimum 6 characters';
+                      if (v == null || v.isEmpty) {
+                        return 'Password is required';
+                      }
+                      if (v.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 2.h),
 
                   CustomTextField(
                     label: 'Confirm Password',
-                    hint: 'Re-enter your password',
+                    hint: 'Repeat password',
                     controller: _confirmPassCtrl,
                     isPassword: true,
                     prefixIcon: Icons.lock_outline_rounded,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Please confirm';
-                      if (v != _passCtrl.text) return 'Passwords do not match';
+                      if (v != _passCtrl.text) {
+                        return 'Passwords do not match';
+                      }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 3.5.h),
 
-                  // ── Register button ──────────────────────────
+                  // ── Submit button ────────────────────────────
                   CustomButton(
                     label: 'Create Account',
                     onPressed: _register,
                     isLoading: authState.isLoading,
-                    gradient: _roleGradient(),
+                    gradient: _getRoleGradient(),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 2.5.h),
 
                   // ── Login link ───────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Already have an account? ',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 14,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontSize: 13.sp,
                           color: AppColors.textSecondary,
                         ),
                       ),
                       GestureDetector(
                         onTap: () => context.pop(),
-                        child: const Text(
+                        child: Text(
                           'Sign In',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          style: AppTextStyles.bodyMediumBold.copyWith(
+                            fontSize: 13.sp,
                             color: AppColors.primary,
                           ),
                         ),
@@ -294,7 +291,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  Gradient _roleGradient() {
+  Gradient _getRoleGradient() {
     switch (_selectedRole) {
       case 'admin':
         return AppColors.adminGradient;
@@ -320,19 +317,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         onTap: () => setState(() => _selectedRole = role),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(vertical: 2.h),
           decoration: BoxDecoration(
             gradient: isSelected ? gradient : null,
             color: isSelected ? null : AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
             border: Border.all(
-              color: isSelected ? Colors.transparent : AppColors.divider,
+              color: isSelected ? AppColors.transparent : AppColors.divider,
               width: 1.5,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: color.withOpacity(0.3),
+                      color: color.withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -341,15 +338,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           ),
           child: Column(
             children: [
-              Icon(icon, color: isSelected ? Colors.white : color, size: 28),
+              Icon(
+                icon,
+                color: isSelected ? AppColors.white : color,
+                size: 7.w.clamp(24.0, 30.0),
+              ),
               const SizedBox(height: 6),
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 12,
+                style: AppTextStyles.labelSmall.copyWith(
+                  fontSize: 11.sp,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                  color: isSelected ? AppColors.white : AppColors.textSecondary,
                 ),
               ),
             ],

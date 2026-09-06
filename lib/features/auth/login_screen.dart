@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_dimensions.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -109,7 +110,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final size = MediaQuery.of(context).size;
+    final logoSize = 22.w.clamp(74.0, 96.0);
+    final logoIconSize = 12.w.clamp(40.0, 52.0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -122,7 +124,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               child: FadeTransition(
                 opacity: _headerFade,
                 child: Container(
-                  height: size.height * 0.40,
+                  height: 38.h,
                   width: double.infinity,
                   decoration: const BoxDecoration(
                     gradient: AppColors.primaryGradient,
@@ -137,43 +139,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       children: [
                         // Logo image
                         Container(
-                          width: 90,
-                          height: 90,
+                          width: logoSize,
+                          height: logoSize,
                           decoration: BoxDecoration(
-                            color: AppColors.onPrimary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(26),
+                            color: AppColors.onPrimary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(AppDimensions.radiusLarge + 6),
                             border: Border.all(
-                              color: AppColors.onPrimary.withOpacity(0.4),
+                              color: AppColors.onPrimary.withValues(alpha: 0.4),
                               width: 1.5,
                             ),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(AppDimensions.radiusLarge + 4),
                             child: Image.asset(
                               'assets/logo/logo.png',
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (context, error, stackTrace) => Icon(
                                 Icons.school_rounded,
                                 color: AppColors.onPrimary,
-                                size: 48,
+                                size: logoIconSize,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppDimensions.space20),
+                        SizedBox(height: 2.h),
                         Text(
                           'EduManage',
                           style: AppTextStyles.headingLarge.copyWith(
-                            fontSize: 30,
+                            fontSize: 24.sp,
                             color: AppColors.onPrimary,
                             letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: AppDimensions.space4 + AppDimensions.space2),
+                        SizedBox(height: 0.8.h),
                         Text(
                           'Sign in to your account',
                           style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.onPrimary.withOpacity(0.8),
+                            fontSize: 13.sp,
+                            color: AppColors.onPrimary.withValues(alpha: 0.85),
                           ),
                         ),
                       ],
@@ -189,7 +192,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               child: FadeTransition(
                 opacity: _formFade,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+                  padding: EdgeInsets.fromLTRB(6.w, 3.h, 6.w, 3.h),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -209,7 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: 2.h),
 
                         CustomTextField(
                           label: 'Password',
@@ -225,7 +228,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             return null;
                           },
                         ),
-                        const SizedBox(height: AppDimensions.space32),
+                        SizedBox(height: 3.h),
 
                         CustomButton(
                           label: 'Sign In',
@@ -233,7 +236,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           isLoading: authState.isLoading,
                           gradient: AppColors.primaryGradient,
                         ),
-                        const SizedBox(height: AppDimensions.space32),
+                        SizedBox(height: 3.h),
 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -241,6 +244,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             Text(
                               "Don't have an account? ",
                               style: AppTextStyles.bodyMedium.copyWith(
+                                fontSize: 13.sp,
                                 color: AppColors.textSecondary,
                               ),
                             ),
@@ -249,6 +253,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               child: Text(
                                 'Create one',
                                 style: AppTextStyles.bodyMediumBold.copyWith(
+                                  fontSize: 13.sp,
                                   color: AppColors.primary,
                                 ),
                               ),
