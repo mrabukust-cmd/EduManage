@@ -49,12 +49,12 @@ class ParentFeePaymentScreen extends ConsumerWidget {
         backgroundColor: AppColors.warning,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
           onPressed: () => context.pop(),
         ),
         title: Text(
           'Fee Payment',
-          style: AppTextStyles.headingMedium.copyWith(color: Colors.white),
+          style: AppTextStyles.headingMedium.copyWith(color: AppColors.white),
         ),
       ),
       body: uid == null
@@ -175,13 +175,7 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: isSelected
-                    ? const LinearGradient(
-                        colors: [Color(0xFFE67E22), Color(0xFFF59E0B)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
+                gradient: isSelected ? AppColors.financeGradient : null,
                 color: isSelected ? null : AppColors.cardBg,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: AppColors.cardShadow,
@@ -192,8 +186,8 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: isSelected
-                        ? Colors.white24
-                        : AppColors.warning.withOpacity(0.12),
+                        ? AppColors.white.withValues(alpha: 0.24)
+                        : AppColors.warning.withValues(alpha: 0.12),
                     child: Text(
                       (child['name'] as String).isNotEmpty
                           ? (child['name'] as String)[0].toUpperCase()
@@ -202,7 +196,7 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
-                        color: isSelected ? Colors.white : AppColors.warning,
+                        color: isSelected ? AppColors.white : AppColors.warning,
                       ),
                     ),
                   ),
@@ -214,7 +208,7 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
                         Text(child['name'] as String,
                             style: AppTextStyles.bodyMediumBold.copyWith(
                               color: isSelected
-                                  ? Colors.white
+                                  ? AppColors.white
                                   : AppColors.textPrimary,
                             )),
                         const SizedBox(height: 3),
@@ -222,7 +216,7 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
                           '${child['class']}  •  Roll: ${child['rollNo']}',
                           style: AppTextStyles.labelSmall.copyWith(
                             color: isSelected
-                                ? Colors.white70
+                                ? AppColors.white.withValues(alpha: 0.7)
                                 : AppColors.textSecondary,
                           ),
                         ),
@@ -234,7 +228,7 @@ class _ParentFeeBodyState extends State<_ParentFeeBody> {
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
                     color:
-                        isSelected ? Colors.white : AppColors.textSecondary,
+                        isSelected ? AppColors.white : AppColors.textSecondary,
                   ),
                 ],
               ),
@@ -402,7 +396,7 @@ class _FeeListForChildState extends State<_FeeListForChild> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSel ? color.withOpacity(0.12) : Colors.transparent,
+                        color: isSel ? color.withValues(alpha: 0.12) : AppColors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                             color: isSel ? color : AppColors.divider),
@@ -564,30 +558,26 @@ class _SummaryHero extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: AppColors.successGradient,
           borderRadius: BorderRadius.circular(18),
           boxShadow: AppColors.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Total Paid',
               style:
-                  AppTextStyles.labelMedium.copyWith(color: Colors.white70)),
+                  AppTextStyles.labelMedium.copyWith(color: AppColors.white.withValues(alpha: 0.7))),
           const SizedBox(height: 8),
           Text('Rs. ${fmt.format(totalPaid)}',
               style: const TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: AppColors.white,
               )),
           const SizedBox(height: 4),
           Text('$paidCount payment${paidCount == 1 ? '' : 's'} verified',
               style:
-                  AppTextStyles.labelSmall.copyWith(color: Colors.white70)),
+                  AppTextStyles.labelSmall.copyWith(color: AppColors.white.withValues(alpha: 0.7))),
         ]),
       ),
       const SizedBox(height: 12),
@@ -1203,7 +1193,7 @@ class _PaymentProofSheetState extends State<_PaymentProofSheet> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: AppColors.white),
                         )
                       : const Text('Submit Payment Proof'),
                 ),
@@ -1486,7 +1476,7 @@ class _AddFeeSheetState extends State<_AddFeeSheet> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: AppColors.white),
                         )
                       : const Text('Save Fee Record'),
                 ),

@@ -199,15 +199,17 @@ class _AttendanceCard extends StatelessWidget {
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final status = data['status'] as String? ?? 'absent';
-          if (status == 'present')
+          if (status == 'present') {
             present++;
-          else if (status == 'leave')
+          } else if (status == 'leave') {
             leave++;
-          else
+          } else {
             absent++;
+          }
         }
         final total = docs.length;
         final pct = total > 0 ? present / total : 0.0;
+        final progressSize = 18.w.clamp(64.0, 80.0);
 
         return Container(
           padding: const EdgeInsets.all(18),
@@ -219,15 +221,15 @@ class _AttendanceCard extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 72,
-                height: 72,
+                width: progressSize,
+                height: progressSize,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: total == 0 ? 0 : pct,
                       strokeWidth: 7,
-                      backgroundColor: AppColors.studentColor.withOpacity(0.15),
+                      backgroundColor: AppColors.studentColor.withValues(alpha: 0.15),
                       valueColor: const AlwaysStoppedAnimation(
                         AppColors.studentColor,
                       ),
@@ -673,7 +675,7 @@ class _AssignmentItem extends StatelessWidget {
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(14),
         border: isUrgent
-            ? Border.all(color: Colors.redAccent.withOpacity(0.4))
+            ? Border.all(color: AppColors.danger.withValues(alpha: 0.4))
             : null,
         boxShadow: AppColors.cardShadow,
       ),
@@ -682,13 +684,13 @@ class _AssignmentItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.studentColor.withOpacity(0.1),
+              color: AppColors.studentColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.assignment_rounded,
               color: AppColors.studentColor,
-              size: 18,
+              size: 4.5.w.clamp(16.0, 20.0),
             ),
           ),
           const SizedBox(width: 12),
