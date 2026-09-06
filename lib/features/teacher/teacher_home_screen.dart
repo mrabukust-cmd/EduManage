@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/data/repositories/teacher_repo.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
@@ -151,8 +152,11 @@ class _TeacherHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarRadius = 6.w.clamp(20.0, 26.0);
+    final avatarIconSize = 6.w.clamp(22.0, 26.0);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      padding: EdgeInsets.fromLTRB(5.w, 2.h, 5.w, 3.h),
       decoration: const BoxDecoration(
         gradient: AppColors.teacherGradient,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
@@ -166,32 +170,37 @@ class _TeacherHeader extends StatelessWidget {
               Text(
                 'Welcome back,',
                 style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.white70,
+                  fontSize: 12.sp,
+                  color: AppColors.white.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 userName,
-                style: AppTextStyles.headingLarge.copyWith(color: Colors.white),
+                style: AppTextStyles.headingLarge.copyWith(
+                  fontSize: 22.sp,
+                  color: AppColors.white,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 dateLabel,
                 style: AppTextStyles.labelMedium.copyWith(
-                  color: Colors.white60,
+                  fontSize: 11.sp,
+                  color: AppColors.white.withValues(alpha: 0.6),
                 ),
               ),
             ],
           ),
-          const Stack(
+          Stack(
             children: [
               CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.white24,
+                radius: avatarRadius,
+                backgroundColor: AppColors.white.withValues(alpha: 0.24),
                 child: Icon(
                   Icons.person_rounded,
-                  color: Colors.white,
-                  size: 28,
+                  color: AppColors.white,
+                  size: avatarIconSize,
                 ),
               ),
             ],
@@ -306,7 +315,7 @@ class _TodaysClasses extends StatelessWidget {
             }
 
             return SizedBox(
-              height: 140,
+              height: 17.h.clamp(130.0, 160.0),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -445,13 +454,13 @@ class _ActionTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 26),
+              Icon(icon, color: color, size: 6.w.clamp(22.0, 28.0)),
               const SizedBox(height: 6),
               Text(
                 label,

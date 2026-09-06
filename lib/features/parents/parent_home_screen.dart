@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:school_management_system/core/theme/app_colors.dart';
 import 'package:school_management_system/core/theme/app_text_style.dart';
+import 'package:school_management_system/core/utils/responsive_sizer.dart';
 import 'package:school_management_system/features/auth/providers/auth_provider.dart';
 
 class ParentHomeScreen extends ConsumerWidget {
@@ -267,11 +268,14 @@ class _ParentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarRadius = 6.w.clamp(20.0, 26.0);
+    final avatarIconSize = 6.w.clamp(22.0, 26.0);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      padding: EdgeInsets.fromLTRB(5.w, 2.h, 5.w, 3.h),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1A56DB)],
+          colors: [AppColors.textPrimary, AppColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -286,31 +290,33 @@ class _ParentHeader extends StatelessWidget {
                 Text(
                   'Welcome,',
                   style: AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white70,
+                    fontSize: 12.sp,
+                    color: AppColors.white.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   userName,
                   style: AppTextStyles.headingLarge.copyWith(
-                    color: Colors.white,
+                    fontSize: 22.sp,
+                    color: AppColors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   DateFormat('EEEE, MMMM d').format(DateTime.now()),
                   style: AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white60,
+                    fontSize: 11.sp,
+                    color: AppColors.white.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
           ),
-          // Replace the bell IconButton in _ParentHeader with this:
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('notifications')
-                .where('uid', isEqualTo: uid) // pass uid into _ParentHeader
+                .where('uid', isEqualTo: uid)
                 .where('isRead', isEqualTo: false)
                 .snapshots(),
             builder: (context, snap) {
@@ -319,10 +325,10 @@ class _ParentHeader extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => context.push('/parent/notifications'),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.notifications_rounded,
-                      color: Colors.white,
-                      size: 28,
+                      color: AppColors.white,
+                      size: 6.w.clamp(24.0, 28.0),
                     ),
                   ),
                   if (unread > 0)
@@ -339,11 +345,11 @@ class _ParentHeader extends StatelessWidget {
                         child: Center(
                           child: Text(
                             unread > 9 ? '9+' : '$unread',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Poppins',
-                              fontSize: 9,
+                              fontSize: 9.sp,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
                         ),
@@ -355,10 +361,10 @@ class _ParentHeader extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () => context.push('/parent/home/profile'),
-            child: const CircleAvatar(
-              radius: 22,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
+            child: CircleAvatar(
+              radius: avatarRadius,
+              backgroundColor: AppColors.white.withValues(alpha: 0.24),
+              child: Icon(Icons.person_rounded, color: AppColors.white, size: avatarIconSize),
             ),
           ),
         ],
@@ -408,11 +414,7 @@ class _ChildCard extends StatelessWidget {
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1A56DB), Color(0xFF7C3AED)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: AppColors.cardShadow,
               ),
@@ -420,7 +422,7 @@ class _ChildCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: Colors.white24,
+                    backgroundColor: AppColors.white.withValues(alpha: 0.24),
                     child: Text(
                       name.isNotEmpty ? name[0].toUpperCase() : 'S',
                       style: const TextStyle(
