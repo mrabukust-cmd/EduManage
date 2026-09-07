@@ -15,6 +15,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_text_style.dart';
 import 'core/utils/responsive_sizer.dart';
@@ -133,6 +134,7 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     // ── Watch auth state → start/stop local notification listener ─────────
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -160,6 +162,8 @@ class _EduManageAppState extends ConsumerState<EduManageApp> {
           title: 'EduManage',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
           routerConfig: router,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
         );

@@ -93,6 +93,19 @@ class AppColors {
   static const Color onDark         = Color(0xFFFFFFFF);
   static const Color overlay        = Color(0x990F172A);
 
+  // ── Dark Mode Neutral & Surface Tokens ────────────────────
+  static const Color darkBackground   = Color(0xFF0F172A); // Slate 900
+  static const Color darkSurface      = Color(0xFF1E293B); // Slate 800
+  static const Color darkCardBg       = Color(0xFF1E293B);
+  static const Color darkCardBorder   = Color(0xFF334155); // Slate 700
+  static const Color darkBorder       = Color(0xFF334155);
+  static const Color darkDivider      = Color(0xFF334155);
+  static const Color darkInputBg      = Color(0xFF0F172A);
+  static const Color darkInputBorder  = Color(0xFF334155);
+  static const Color darkTextPrimary  = Color(0xFFF8FAFC); // Slate 50
+  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+  static const Color darkTextHint     = Color(0xFF64748B); // Slate 500
+
   // ── Shimmer Loading Colors ────────────────────────────────
   static const Color shimmerBase      = Color(0xFFE2E8F0);
   static const Color shimmerHighlight = Color(0xFFF8FAFC);
