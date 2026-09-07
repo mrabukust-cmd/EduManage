@@ -8,18 +8,23 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 
 - **Multi-Role Dashboards**: Tailored experiences for Administrators, Teachers, Students, and Parents.
 - **REST API + Firebase Dual Support**: Clean, modular API architecture with JWT authentication, query search/pagination, and persistent token caching.
+- **Dark Mode & Dynamic Theming**: Complete Material 3 dark palette with `themeModeProvider` support for light, dark, and system theme switching.
+- **Standardized UI Feedback**: Responsive `AppToast` floating snackbars and dismissible `AppBanner` alert widgets for consistent user feedback.
+- **Robust Form Validation Engine**: Centralized `Validators` suite with email, password, phone, amount/currency, numeric bounds, score, GPA, URL, sanitizers, and composite rule chaining.
+- **CSV Data Export Engine**: RFC 4180 compliant `CsvExporter` for students roster, fee collections, attendance, and exam grades with injection attack protection.
 - **Attendance Management**: Class attendance marking, student percentage tracking, and monthly reports.
 - **Assignments & Submissions**: Assignment distribution, deadline reminders, and file submission workflows.
 - **Fee Management**: Invoice generation, receipt upload, admin verification, and fee collection analytics.
 - **Notices & Timetable**: Institutional notice broadcasts and dynamic class schedule management.
 - **Results & Grading**: Exam grade tracking with automated GPA and letter grade calculations.
+- **API Security & Rate Limiting**: In-memory sliding window rate limiter protecting endpoints against brute-force and request flooding.
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: Flutter 3.x, Flutter Riverpod, GoRouter, HTTP
-- **Backend**: Node.js, Express.js, JWT, Helmet, Morgan, Bcrypt
+- **Frontend**: Flutter 3.x, Flutter Riverpod, GoRouter, HTTP, ResponsiveSizer
+- **Backend**: Node.js, Express.js, JWT, Helmet, Morgan, Bcrypt, RateLimit
 - **Architecture**: Clean Architecture, Repository Pattern, Type-Safe API Services
 
 ---
