@@ -39,7 +39,7 @@ final teacherAssignedClassesProvider =
       .doc(uid)
       .snapshots()
       .asyncMap((snapshot) async {
-    final data = snapshot.data() as Map<String, dynamic>?;
+    final data = snapshot.data();
     final classesFromTeacher = (data?['classes'] as List<dynamic>?)
             ?.map((e) => e.toString().trim())
             .where((value) => value.isNotEmpty)
@@ -89,7 +89,7 @@ final studentAttendanceStreamProvider =
       .snapshots()
       .map((snapshot) {
     final students = snapshot.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data();
       return StudentAttendance(
         id: doc.id,
         name: data['name'] as String? ?? 'Unknown',
@@ -230,15 +230,15 @@ class _ClassSelectCard extends ConsumerWidget {
                   Text(className, style: AppTextStyles.bodyMediumBold),
                   const SizedBox(height: 4),
                   countAsync.when(
-                    data: (count) => Text(
-                      '$count registered students',
+                    data: (studentCount) => Text(
+                      '$studentCount registered students',
                       style: AppTextStyles.labelSmall,
                     ),
                     loading: () => Text(
                       'Loading students...',
                       style: AppTextStyles.labelSmall,
                     ),
-                    error: (_, __) => Text(
+                    error: (err, stack) => Text(
                       'Unable to load count',
                       style: AppTextStyles.labelSmall,
                     ),

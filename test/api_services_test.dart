@@ -2,15 +2,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:school_management_system/data/models/api_response.dart';
-import 'package:school_management_system/data/models/assignment_model.dart';
 import 'package:school_management_system/data/models/class_model.dart';
-import 'package:school_management_system/data/models/fee_model.dart';
-import 'package:school_management_system/data/models/notice_model.dart';
-import 'package:school_management_system/data/models/result_model.dart';
 import 'package:school_management_system/data/models/student_model.dart';
-import 'package:school_management_system/data/models/teacher_model.dart';
-import 'package:school_management_system/data/models/timetable_model.dart';
 import 'package:school_management_system/data/services/api/api_services.dart';
 import 'package:school_management_system/data/services/api_client.dart';
 
