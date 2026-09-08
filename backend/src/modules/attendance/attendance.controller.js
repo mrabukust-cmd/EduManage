@@ -7,7 +7,16 @@ const markAttendance = asyncHandler(async (req, res) => {
 });
 
 const getByClassAndDate = asyncHandler(async (req, res) => {
-  const { className, date } = req.query;
+  const className = req.query.className || req.query.class;
+  const { date } = req.query;
+
+  if (!className || !date) {
+    return res.status(400).json({
+      success: false,
+      message: 'Both className (or class) and date query parameters are required',
+    });
+  }
+
   const records = await attendanceService.getByClassAndDate(className, date);
   res.status(200).json({ success: true, count: records.length, data: records });
 });

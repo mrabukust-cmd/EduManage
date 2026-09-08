@@ -2,9 +2,26 @@ const db = require('../../db/store');
 const { AppError } = require('../../middleware/error.middleware');
 
 class AttendanceService {
-  async markAttendance({ class: className, date, records }) {
+  async markAttendance(payload = {}) {
+    const className = payload.className || payload.class;
+    const { date, records } = payload;
+
     if (!className || !date || !Array.isArray(records)) {
-      throw new AppError('className, date, and records array are required', 400);
+      throw new AppError('className (or class), date, and records array are required', 400);
+    }
+
+    if (records.length === 0) {
+      throw new AppError('records array cannot be empty', 400);
+    }
+
+    const validStatuses = ['present', 'absent', 'leave'];
+    for (const record of records) {
+      if (!record.studentId) {
+        throw new AppError('studentId is required for each attendance record', 400);
+      }
+      if (record.status && !validStatuses.includes(record.status)) {
+        throw new AppError(`Invalid status '${record.status}'. Allowed values: ${validStatuses.join(', ')}`, 400);
+      }
     }
 
     const attendanceCol = db.collection('attendance');
@@ -18,7 +35,7 @@ class AttendanceService {
 
       if (existing) {
         const updated = attendanceCol.update(existing.id, {
-          status: record.status, // 'present' | 'absent' | 'leave'
+          status: record.status || 'present',
           className,
           studentName: record.studentName || existing.studentName,
           rollNo: record.rollNo || existing.rollNo,
