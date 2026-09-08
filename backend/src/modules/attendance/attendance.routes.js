@@ -12,6 +12,7 @@ router.post(
   attendanceController.markAttendance
 );
 
+router.get('/', attendanceController.getByClassAndDate);
 router.get('/class', attendanceController.getByClassAndDate);
 router.get('/student/:studentId?', attendanceController.getStudentSummary);
 
