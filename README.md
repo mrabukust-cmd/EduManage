@@ -32,7 +32,7 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 ## Documentation & Getting Started
 
 1. **REST API Documentation**: Full endpoint contracts, request/response schemas, and Curl examples are in [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md).
-2. **Backend Setup**: Instructions for running the Express API server are in [backend/README.md](backend/README.md).
+2. **Backend Setup**: Instructions for running the Express API server are in [edumanage-backend/README.md](edumanage-backend/README.md).
 3. **Flutter App**: Run `flutter run` for Android/iOS/Web or desktop targets.
 
 ---
@@ -46,5 +46,5 @@ Run automated test suites across both layers:
 flutter test
 
 # Backend API Tests
-cd backend && npm test
+cd edumanage-backend && npm test
 ```
