@@ -1,5 +1,10 @@
 # EduManage - School Management System
 
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/mrabukust-cmd/EduManage/actions/workflows/ci.yml/badge.svg)](https://github.com/mrabukust-cmd/EduManage/actions)
+
 EduManage is a comprehensive, multi-role School Management System featuring a cross-platform **Flutter** client (Android, iOS, Web, Desktop) and a high-performance **Node.js/Express** REST API backend with real-time Firebase support.
 
 ---
@@ -12,6 +17,7 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 - **Standardized UI Feedback**: Responsive `AppToast` floating snackbars and dismissible `AppBanner` alert widgets for consistent user feedback.
 - **Robust Form Validation Engine**: Centralized `Validators` suite with email, password, phone, amount/currency, numeric bounds, score, GPA, URL, sanitizers, and composite rule chaining.
 - **CSV Data Export Engine**: RFC 4180 compliant `CsvExporter` for students roster, fee collections, attendance, and exam grades with injection attack protection.
+- **DateTime & Formatting Utilities**: Centralized `DateTimeHelper` for ISO parsing, human relative timestamps (`timeAgo`), and academic deadline calculations.
 - **Attendance Management**: Class attendance marking, student percentage tracking, and monthly reports.
 - **Assignments & Submissions**: Assignment distribution, deadline reminders, and file submission workflows.
 - **Fee Management**: Invoice generation, receipt upload, admin verification, and fee collection analytics.
@@ -29,11 +35,13 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 
 ---
 
-## Documentation & Getting Started
+## Documentation & Navigation
 
-1. **REST API Documentation**: Full endpoint contracts, request/response schemas, and Curl examples are in [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md).
-2. **Backend Setup**: Instructions for running the Express API server are in [edumanage-backend/README.md](edumanage-backend/README.md).
-3. **Flutter App**: Run `flutter run` for Android/iOS/Web or desktop targets.
+- **[System Architecture](docs/ARCHITECTURE.md)**: Deep-dive into client and server components, state management, and security model.
+- **[REST API Specifications](docs/API_DOCUMENTATION.md)**: Complete endpoint contracts, request/response schemas, and Curl examples.
+- **[Backend Guide](edumanage-backend/README.md)**: Setup and run instructions for the Express REST server.
+- **[Contributing Guide](CONTRIBUTING.md)**: Standards, branch workflows, and conventional commit rules.
+- **[Changelog](CHANGELOG.md)**: Full history of releases and milestone updates.
 
 ---
 
