@@ -29,12 +29,32 @@ app.get('/', (req, res) => {
 });
 
 app.get(`${config.apiPrefix}/health`, (req, res) => {
+  const memory = process.memoryUsage();
   res.json({
     success: true,
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: config.env,
+    system: {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      pid: process.pid,
+    },
+    memory: {
+      rssMb: Math.round((memory.rss / 1024 / 1024) * 100) / 100,
+      heapTotalMb: Math.round((memory.heapTotal / 1024 / 1024) * 100) / 100,
+      heapUsedMb: Math.round((memory.heapUsed / 1024 / 1024) * 100) / 100,
+    },
+  });
+});
+
+app.get(`${config.apiPrefix}/health/ping`, (req, res) => {
+  res.json({
+    success: true,
+    pong: true,
+    timestamp: new Date().toISOString(),
   });
 });
 
