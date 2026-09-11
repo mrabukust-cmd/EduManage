@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-09-11
+
+### Added
+- **AppLogger Utility**: Structured logging suite with severity levels, in-memory ring buffer, and diagnostic log export.
+- **SecurityHelper Suite**: Enterprise-grade sanitization, XSS/SQL injection prevention, PII masking (email, phone, national ID), and secure token generation.
+- **GpaCalculator Engine**: Standard 4.0 GPA/CGPA computation, credit weighting, and academic standing honors classification.
+- **NotificationHelper**: Smart categorization, priority determination, unread counter badges, and category theme color mapping.
+- **NetworkService**: Network reachability monitor, latency classification (fast, slow, offline), and ChangeNotifier reactive state.
+- **Backend Health & Diagnostics**: Enhanced `/api/v1/health` with memory metrics and added `/api/v1/health/ping` liveness probe.
+- **Technical Documentation**: Added `docs/UTILITIES_AND_HEALTH_SPEC.md` covering all utility suites and endpoints.
+
+---
+
 ## [1.2.0] - 2026-09-10
 
 ### Added

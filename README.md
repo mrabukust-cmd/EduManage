@@ -23,7 +23,13 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 - **Fee Management**: Invoice generation, receipt upload, admin verification, and fee collection analytics.
 - **Notices & Timetable**: Institutional notice broadcasts and dynamic class schedule management.
 - **Results & Grading**: Exam grade tracking with automated GPA and letter grade calculations.
+- **Structured Telemetry & Logging**: Configurable `AppLogger` utility with severity levels, ring buffer caching, and diagnostic exports.
+- **Security & Data Sanitization**: `SecurityHelper` suite protecting against XSS, SQL injection, and providing automated PII masking for emails, phones, and IDs.
+- **Academic GPA & Honors Engine**: Precision `GpaCalculator` supporting 4.0 weighted scale, SGPA, CGPA, and honors/standing evaluation.
+- **Smart Notification Categorization**: Dynamic `NotificationHelper` for urgency classification, badge counters, and category color mapping.
+- **Network Reachability Monitoring**: `NetworkService` supporting latency evaluation and real-time connectivity state management.
 - **API Security & Rate Limiting**: In-memory sliding window rate limiter protecting endpoints against brute-force and request flooding.
+- **Backend Health & Liveness Probes**: System health endpoint `/api/v1/health` with process memory metrics and `/api/v1/health/ping` liveness probe.
 
 ---
 
@@ -39,6 +45,7 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 
 - **[System Architecture](docs/ARCHITECTURE.md)**: Deep-dive into client and server components, state management, and security model.
 - **[REST API Specifications](docs/API_DOCUMENTATION.md)**: Complete endpoint contracts, request/response schemas, and Curl examples.
+- **[Utilities & Health Monitoring](docs/UTILITIES_AND_HEALTH_SPEC.md)**: Specifications for security, logging, academic calculators, and health probes.
 - **[Backend Guide](edumanage-backend/README.md)**: Setup and run instructions for the Express REST server.
 - **[Contributing Guide](CONTRIBUTING.md)**: Standards, branch workflows, and conventional commit rules.
 - **[Changelog](CHANGELOG.md)**: Full history of releases and milestone updates.
