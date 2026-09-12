@@ -58,6 +58,12 @@ app.get(`${config.apiPrefix}/health/ping`, (req, res) => {
   });
 });
 
+const { validateRelationalIntegrity } = require('./modules/system/integrity.service');
+app.get(`${config.apiPrefix}/health/integrity`, (req, res) => {
+  const report = validateRelationalIntegrity();
+  res.json(report);
+});
+
 // ── API Routes (Mounted in Modules) ──────────────────────────
 const apiRouter = express.Router();
 
