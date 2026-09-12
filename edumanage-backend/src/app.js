@@ -74,6 +74,7 @@ const timetableRoutes = require('./modules/timetable/timetable.routes');
 const resultsRoutes = require('./modules/results/results.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const exportRoutes = require('./modules/export/export.routes');
+const auditRoutes = require('./modules/audit/audit.routes');
 
 // Apply rate limiter to API router in production/development
 if (config.env !== 'test') {
@@ -92,6 +93,7 @@ apiRouter.use('/timetable', timetableRoutes);
 apiRouter.use('/results', resultsRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/export', exportRoutes);
+apiRouter.use('/audit', auditRoutes);
 
 // Mount root api router
 app.use(config.apiPrefix, apiRouter);
