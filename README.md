@@ -23,6 +23,10 @@ EduManage is a comprehensive, multi-role School Management System featuring a cr
 - **Fee Management**: Invoice generation, receipt upload, admin verification, and fee collection analytics.
 - **Notices & Timetable**: Institutional notice broadcasts and dynamic class schedule management.
 - **Results & Grading**: Exam grade tracking with automated GPA and letter grade calculations.
+- **MemoryCache & CacheManager**: High-performance client-side caching with configurable TTL, LRU eviction, tag-based invalidation, and hit/miss statistics.
+- **Academic Analytics Engine**: Attendance streak calculation, linear regression grade trajectory analysis, academic risk detection, and class percentile ranking.
+- **Backend Audit Logging & Security Trail**: Structured audit logging middleware tracking administrative events, actor metadata, client IP, execution duration, and payload redaction.
+- **Database Relational Integrity Probes**: Deep relational integrity validator verifying foreign key references, detecting orphaned fees, and providing `/api/v1/health/integrity` diagnostic endpoints.
 - **Structured Telemetry & Logging**: Configurable `AppLogger` utility with severity levels, ring buffer caching, and diagnostic exports.
 - **Security & Data Sanitization**: `SecurityHelper` suite protecting against XSS, SQL injection, and providing automated PII masking for emails, phones, and IDs.
 - **Academic GPA & Honors Engine**: Precision `GpaCalculator` supporting 4.0 weighted scale, SGPA, CGPA, and honors/standing evaluation.

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-09-12
+
+### Added
+- **MemoryCache & CacheManager Utility**: Generic client-side caching engine with configurable TTL expiration, LRU capacity eviction, tag-based bulk invalidation (`invalidateByTag`, `invalidateByTags`), and hit/miss efficiency metrics.
+- **AcademicAnalytics Intelligence Engine**: Complete academic telemetry calculating attendance streaks, longest records, linear regression grade trajectory analysis with standard deviation, multi-factor academic risk profiles with remediation recommendations, and class percentile distributions.
+- **Backend Audit Logging & Security Trail**: Structured audit logging middleware capturing administrative events, actor metadata, client IP, execution duration, and payload sanitization with `GET /api/v1/audit/logs` and `GET /api/v1/audit/summary`.
+- **Database Relational Integrity Validator**: Deep integrity diagnostic service detecting broken foreign keys, orphaned fee invoices, duplicate user emails, and `/api/v1/health/integrity` live health probe.
+- **Client Compiler & Static Analysis Cleanliness**: Resolved all compiler warnings and unused imports across client feature modules, achieving clean 0-warning static analysis.
+
+---
+
 ## [1.3.0] - 2026-09-11
 
 ### Added

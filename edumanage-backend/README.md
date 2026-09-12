@@ -26,6 +26,7 @@ edumanage-backend/
 │   │   ├── store.js          # Atomic document database store engine
 │   │   └── seeds.js          # Initial database seeding for admin, classes, teachers, students
 │   ├── middleware/
+│   │   ├── audit.middleware.js      # Structured audit logging & security event tracking
 │   │   ├── auth.middleware.js       # JWT validation & Role-Based Access Control (RBAC)
 │   │   ├── error.middleware.js      # Global 404 & centralized error handlers
 │   │   ├── logger.middleware.js     # Morgan HTTP request logging
@@ -35,6 +36,7 @@ edumanage-backend/
 │   └── modules/
 │       ├── assignments/      # Homework & assignment submissions
 │       ├── attendance/       # Daily student & class attendance tracking
+│       ├── audit/            # Administrative audit logs and analytics routes
 │       ├── auth/             # Authentication, login, profile, and JWT generation
 │       ├── classes/          # Academic classes and sections management
 │       ├── dashboard/        # Aggregated analytics for admin, teachers, students
@@ -43,15 +45,18 @@ edumanage-backend/
 │       ├── notices/          # School notices, announcements, and push alerts
 │       ├── results/          # Academic exam results and grading management
 │       ├── students/         # Student directory, enrollment, and profile details
+│       ├── system/           # Relational integrity validator and diagnostic probes
 │       ├── teachers/         # Teacher staff records, qualifications, and approvals
 │       └── timetable/        # Class timetable and weekly schedule slots
 └── tests/
     ├── attendance_validation.test.js # Validation & alias test suite
+    ├── audit.test.js                 # Audit logging and event query test suite
     ├── core_api.test.js              # Auth, classes, students, teachers integration
     ├── extended_api.test.js          # Fees, notices, timetable, results, dashboard
     ├── health.test.js                # System health check endpoints
     ├── query_pagination.test.js      # Search, pagination, and sorting tests
-    └── security_and_export.test.js   # Rate limiting & CSV export security tests
+    ├── security_and_export.test.js   # Rate limiting & CSV export security tests
+    └── system_integrity.test.js      # Relational database integrity & diagnostic tests
 ```
 
 ---
@@ -98,6 +103,8 @@ npm test
 ## 🔒 Security & Middleware Features
 
 - **JWT Authentication & RBAC**: Enforces role access (`admin`, `teacher`, `student`, `parent`).
+- **Administrative Audit Trail**: Records sensitive operations, actor identity, client IP, execution duration, and payload redaction.
+- **Relational Integrity Probes**: Live checks for foreign key consistency and orphaned records via `/api/v1/health/integrity`.
 - **Sliding-Window Rate Limiter**: Configured with standard headers (`RateLimit-Limit`, `RateLimit-Remaining`).
 - **HTTP Header Protection**: Enforced via `helmet`.
 - **CORS Support**: Cross-origin policy supporting Flutter web, desktop, and mobile targets.
@@ -107,7 +114,7 @@ npm test
 
 ## 🧪 Testing
 
-All 36 integration test suites run with Node's native test runner (`node --test`):
+All 48 integration and unit test suites run with Node's native test runner (`node --test`):
 ```bash
 npm test
 ```
