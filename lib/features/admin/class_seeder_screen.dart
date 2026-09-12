@@ -19,7 +19,6 @@ class _ClassSeederScreenState extends State<ClassSeederScreen> {
   bool _seeding = false;
   bool _done = false;
   String _status = '';
-  int _count = 0;
 
   static const _classLevels = [
     'Nursery',
@@ -45,7 +44,6 @@ class _ClassSeederScreenState extends State<ClassSeederScreen> {
       _seeding = true;
       _done = false;
       _status = 'Seeding classes...';
-      _count = 0;
     });
 
     try {
@@ -81,7 +79,6 @@ class _ClassSeederScreenState extends State<ClassSeederScreen> {
         setState(() {
           _seeding = false;
           _done = true;
-          _count = count;
           _status =
               'Done! $count class entries created/updated (Nursery → Grade 12, sections A/B/C).';
         });

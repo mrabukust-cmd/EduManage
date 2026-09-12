@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:school_management_system/features/admin/admin_dashboard_screen.dart';
 
 /// This file intentionally re-exports AdminDashboardScreen (defined in

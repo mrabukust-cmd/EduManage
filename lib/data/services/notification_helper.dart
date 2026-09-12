@@ -213,7 +213,6 @@ class AppNotifications {
     for (final entry in statusByStudentId.entries) {
       final uid = entry.key;
       final status = entry.value;
-      final name = studentNamesById[uid] ?? 'Student';
 
       if (status == 'absent') {
         absentOrLateIds.add(uid);

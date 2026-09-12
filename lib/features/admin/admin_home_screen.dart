@@ -28,11 +28,6 @@ class ActivityEvent {
   });
 }
 
-DateTime? _tsToDate(dynamic v) {
-  if (v is Timestamp) return v.toDate();
-  return null;
-}
-
 String _fmtTime(DateTime dt) {
   final diff = DateTime.now().difference(dt);
   if (diff.inMinutes < 1) return 'just now';
